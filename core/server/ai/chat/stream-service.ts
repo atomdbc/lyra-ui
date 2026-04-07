@@ -12,6 +12,7 @@ import {
 import { getAiFunctionTools, executeAiToolCall } from "@/core/server/ai/tools/registry";
 import { buildLyraAssistantInstructions } from "@/core/server/ai/instructions";
 import { loadAiWorkspaceContext } from "@/core/server/ai/context/workspace-context-service";
+import { resolveRequestedMarketSelection } from "@/core/server/ai/context/requested-market-resolver";
 import {
   appendAiMessage,
   ensureAiThread,
@@ -89,11 +90,12 @@ export async function streamAiChat(
   payload: AiChatRequest,
   callbacks: AiChatStreamCallbacks
 ) {
-  const context = await loadAiWorkspaceContext(requestContext.identitySeed, payload.selection);
+  const effectiveSelection = await resolveRequestedMarketSelection(payload.message, payload.selection);
+  const context = await loadAiWorkspaceContext(requestContext.identitySeed, effectiveSelection);
   const instructions = buildLyraAssistantInstructions(context);
   const thread = await ensureAiThread(
     requestContext.workspaceUser.id,
-    payload.selection,
+    effectiveSelection,
     payload.threadId ?? null
   );
 
@@ -103,7 +105,7 @@ export async function streamAiChat(
     workspaceUserId: requestContext.workspaceUser.id,
     role: "user",
     content: payload.message,
-    metadata: { selection: payload.selection },
+    metadata: { selection: effectiveSelection },
   });
 
   let previousResponseId = thread.lastResponseId;
@@ -113,6 +115,7 @@ export async function streamAiChat(
   if (!canUseResponsesApi()) {
     const fallback = await streamAiChatWithChatCompletions({
       payload,
+      effectiveSelection,
       thread,
       context,
       instructions,
@@ -129,7 +132,7 @@ export async function streamAiChat(
     await updateAiThreadState({
       threadId: thread.id,
       workspaceUserId: requestContext.workspaceUser.id,
-      selection: payload.selection,
+      selection: effectiveSelection,
       responseId: fallback.responseId,
       preview: finalText.slice(0, 180),
     });
@@ -137,7 +140,7 @@ export async function streamAiChat(
       try {
         const title = await generateAiThreadTitle({
           market: context.market.symbol || context.market.productId,
-          timeframe: payload.selection.activeTimeframe,
+          timeframe: effectiveSelection.activeTimeframe,
           userMessage: payload.message,
           assistantReply: finalText,
         });
@@ -169,6 +172,7 @@ export async function streamAiChat(
         markResponsesApiUnsupported();
         const fallback = await streamAiChatWithChatCompletions({
           payload,
+          effectiveSelection,
           thread,
           context,
           instructions,
@@ -185,7 +189,7 @@ export async function streamAiChat(
         await updateAiThreadState({
           threadId: thread.id,
           workspaceUserId: requestContext.workspaceUser.id,
-          selection: payload.selection,
+          selection: effectiveSelection,
           responseId: fallback.responseId,
           preview: finalText.slice(0, 180),
         });
@@ -193,7 +197,7 @@ export async function streamAiChat(
           try {
             const title = await generateAiThreadTitle({
               market: context.market.symbol || context.market.productId,
-              timeframe: payload.selection.activeTimeframe,
+              timeframe: effectiveSelection.activeTimeframe,
               userMessage: payload.message,
               assistantReply: finalText,
             });
@@ -233,7 +237,7 @@ export async function streamAiChat(
       await updateAiThreadState({
         threadId: thread.id,
         workspaceUserId: requestContext.workspaceUser.id,
-        selection: payload.selection,
+        selection: effectiveSelection,
         responseId: previousResponseId,
         preview: finalText.slice(0, 180),
       });
@@ -241,7 +245,7 @@ export async function streamAiChat(
         try {
           const title = await generateAiThreadTitle({
             market: context.market.symbol || context.market.productId,
-            timeframe: payload.selection.activeTimeframe,
+            timeframe: effectiveSelection.activeTimeframe,
             userMessage: payload.message,
             assistantReply: finalText,
           });
@@ -265,7 +269,7 @@ export async function streamAiChat(
       const execution = await executeAiToolCall(call, {
         identitySeed: requestContext.identitySeed,
         workspaceUserId: requestContext.workspaceUser.id,
-        selection: payload.selection,
+        selection: effectiveSelection,
         context,
       });
       await appendAiMessage({

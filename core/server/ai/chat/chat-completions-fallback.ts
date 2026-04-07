@@ -2,7 +2,7 @@ import "server-only";
 
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import { AiSignalSummary } from "@/core/ai/signal";
-import { AiChatRequest, AiContextPacket, AiThread } from "@/core/ai/types";
+import { AiChatRequest, AiContextPacket, AiThread, AiWorkspaceSelection } from "@/core/ai/types";
 import { getAzureOpenAiClient, getAzureOpenAiModel } from "@/core/server/ai/azure-openai-client";
 import { AiChatStreamCallbacks } from "@/core/server/ai/chat/types";
 import { getMultiTimeframeHistorySummary } from "@/core/server/ai/context/market-history-service";
@@ -173,6 +173,7 @@ function buildMessages(args: {
 
 export async function streamAiChatWithChatCompletions(args: {
   payload: AiChatRequest;
+  effectiveSelection: AiWorkspaceSelection;
   thread: AiThread;
   context: AiContextPacket;
   instructions: string;
@@ -181,17 +182,17 @@ export async function streamAiChatWithChatCompletions(args: {
   const [history, marketHistory, tradingSnapshot, threadMemory, research, marketScan] = await Promise.all([
     listAiMessages(args.thread.id),
     shouldIncludeHistorySummary(args.payload.message)
-      ? getMultiTimeframeHistorySummary(args.payload.selection.activeProductId, [
+      ? getMultiTimeframeHistorySummary(args.effectiveSelection.activeProductId, [
           "15m",
           "1h",
           "4h",
-          args.payload.selection.activeTimeframe,
+          args.effectiveSelection.activeTimeframe,
         ]).catch(() => [])
       : Promise.resolve([]),
     shouldIncludeTradingSnapshot(args.payload.message)
       ? getTradingSnapshot(
-          args.payload.selection.activeProductId,
-          args.payload.selection.activeTimeframe === "1d" ? "15m" : args.payload.selection.activeTimeframe
+          args.effectiveSelection.activeProductId,
+          args.effectiveSelection.activeTimeframe === "1d" ? "15m" : args.effectiveSelection.activeTimeframe
         ).catch(() => null)
       : Promise.resolve(null),
     shouldIncludeThreadMemory(args.payload.message)
@@ -207,21 +208,21 @@ export async function streamAiChatWithChatCompletions(args: {
     shouldIncludeMarketScan(args.payload.message)
       ? scanMarketsForSetups({
           limit: 5,
-          includeProductId: args.payload.selection.activeProductId,
+          includeProductId: args.effectiveSelection.activeProductId,
         }).catch(() => null)
       : Promise.resolve(null),
   ]);
   const primaryOpportunity = pickPrimaryOpportunity(
     marketScan,
-    args.payload.selection.activeProductId
+    args.effectiveSelection.activeProductId
   );
   const primarySignal = primaryOpportunity
-    ? buildSignalSummaryFromOpportunity(primaryOpportunity, args.payload.selection.activeTimeframe)
+    ? buildSignalSummaryFromOpportunity(primaryOpportunity, args.effectiveSelection.activeTimeframe)
     : tradingSnapshot
       ? buildSignalSummaryFromTradingSnapshot(
           tradingSnapshot,
-          args.payload.selection.activeProductId,
-          args.context.market.symbol || args.payload.selection.activeProductId
+          args.effectiveSelection.activeProductId,
+          args.context.market.symbol || args.effectiveSelection.activeProductId
         )
       : null;
 
