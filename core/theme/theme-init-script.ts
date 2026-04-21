@@ -7,8 +7,8 @@ export const themeInitScript = `(() => {
   try {
     const stored = window.localStorage.getItem("${THEME_STORAGE_KEY}");
     const hasStored = stored === "light" || stored === "dark";
-    const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const resolved = hasStored ? stored : (systemDark ? "dark" : "light");
+    // Default to dark (pure black/white palette), unless the user explicitly picked light.
+    const resolved = hasStored ? stored : "dark";
     const root = document.documentElement;
     const vars = ${serialisedCssVars}[resolved] || {};
     root.dataset.theme = resolved;

@@ -33,10 +33,10 @@ const ThemeContext = createContext<ThemeContextValue>({
 
 function readStoredPreference(): ThemePreference {
   if (typeof window === "undefined") {
-    return "system";
+    return "dark";
   }
   const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-  return stored === "light" || stored === "dark" ? stored : "system";
+  return stored === "light" || stored === "dark" ? stored : "dark";
 }
 
 function readSystemTheme(): ThemeMode {
