@@ -7,8 +7,9 @@ import { useWorkspaceStore } from "@/stores/workspace-store";
 type Row = { price: number; size: number; total: number };
 
 // Placeholder depth generator: recomputes on each tick so the orderbook feels
-// alive while a real L2 feed is not yet wired up.
-function buildLevels(mid: number, side: "bids" | "asks", seed: number) {
+// alive while a real L2 feed is not yet wired up. Bias parameter tilts the
+// generated liquidity so the B/S ratio drifts instead of sitting at 50/50.
+function buildLevels(mid: number, side: "bids" | "asks", seed: number, bias: number) {
   if (!mid || mid <= 0) return [] as Row[];
   const rows: Row[] = [];
   let running = 0;
@@ -16,7 +17,8 @@ function buildLevels(mid: number, side: "bids" | "asks", seed: number) {
   for (let i = 0; i < 14; i++) {
     const price = side === "asks" ? mid + (i + 1) * step : mid - (i + 1) * step;
     const noise = Math.sin((i + 1) * (seed * 0.001 + 0.37)) * 0.5 + 1;
-    const size = Math.round(8_000 + noise * 60_000);
+    const sideBias = side === "bids" ? 1 + bias : 1 - bias;
+    const size = Math.round((8_000 + noise * 60_000) * Math.max(0.25, sideBias));
     running += size;
     rows.push({ price, size, total: running });
   }
@@ -29,16 +31,27 @@ export function BulkOrderbook() {
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => setTick((value) => value + 1), 1200);
+    // Faster heartbeat: ~3 fps keeps the depth bars and B/S meter alive without
+    // burning the CPU. When we wire a real feed, this interval goes away.
+    const interval = setInterval(() => setTick((value) => value + 1), 320);
     return () => clearInterval(interval);
   }, []);
 
-  const asks = useMemo(() => buildLevels(mid, "asks", tick).reverse(), [mid, tick]);
-  const bids = useMemo(() => buildLevels(mid, "bids", tick), [mid, tick]);
+  // Bias oscillates slowly to simulate buying/selling pressure ebbs.
+  const bias = useMemo(() => Math.sin(tick * 0.07) * 0.35, [tick]);
+
+  const asks = useMemo(() => buildLevels(mid, "asks", tick, bias).reverse(), [mid, tick, bias]);
+  const bids = useMemo(() => buildLevels(mid, "bids", tick, bias), [mid, tick, bias]);
   const maxTotal = useMemo(
     () => Math.max(1, ...[...asks, ...bids].map((r) => r.total)),
     [asks, bids]
   );
+
+  const bidTotal = useMemo(() => bids.reduce((sum, row) => sum + row.size, 0), [bids]);
+  const askTotal = useMemo(() => asks.reduce((sum, row) => sum + row.size, 0), [asks]);
+  const bsTotal = bidTotal + askTotal;
+  const buyShare = bsTotal > 0 ? bidTotal / bsTotal : 0.5;
+  const sellShare = 1 - buyShare;
 
   return (
     <section className="flex h-full min-h-0 w-full flex-col border-x border-[var(--line)] bg-[var(--panel)]">
@@ -79,9 +92,7 @@ export function BulkOrderbook() {
           ))}
         </div>
         <div className="flex items-center justify-between border-y border-[var(--line)] bg-[var(--panel-2)] px-2 py-1 text-[12px]">
-          <span className="tabular-nums text-[var(--positive)]">
-            {formatPrice(mid)} ↑
-          </span>
+          <span className="tabular-nums text-[var(--positive)]">{formatPrice(mid)} ↑</span>
           <span className="tabular-nums text-foreground/55">
             {activeProductId ? `Spread 0.00026%` : ""}
           </span>
@@ -107,14 +118,17 @@ export function BulkOrderbook() {
           ))}
         </div>
       </div>
-      <div className="relative h-5 border-t border-[var(--line)]">
-        <div className="absolute inset-0 flex text-[10px]">
-          <div className="flex h-full w-1/2 items-center justify-center bg-[var(--positive)]/15 text-[var(--positive)]">
-            B 56.00%
-          </div>
-          <div className="flex h-full w-1/2 items-center justify-center bg-[var(--negative)]/15 text-[var(--negative)]">
-            44.00% S
-          </div>
+
+      <div className="relative h-5 border-t border-[var(--line)] overflow-hidden">
+        <div className="absolute inset-y-0 left-0 bg-[var(--positive)]/15" style={{ width: `${buyShare * 100}%` }} />
+        <div className="absolute inset-y-0 right-0 bg-[var(--negative)]/15" style={{ width: `${sellShare * 100}%` }} />
+        <div className="relative flex h-full items-center justify-between px-2 text-[10px]">
+          <span className="tabular-nums text-[var(--positive)]">
+            B {(buyShare * 100).toFixed(2)}%
+          </span>
+          <span className="tabular-nums text-[var(--negative)]">
+            {(sellShare * 100).toFixed(2)}% S
+          </span>
         </div>
       </div>
     </section>
