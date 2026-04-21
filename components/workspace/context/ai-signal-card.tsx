@@ -1,19 +1,16 @@
 "use client";
 
 import { useMemo } from "react";
+import { ArrowRight } from "lucide-react";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import {
   AiSignalSummary,
-  extractAiResponseSections,
-  formatAiSignalVerdict,
   isAiSignalActionable,
 } from "@/core/ai/signal";
 import { tryParseSignalTagToSummary, stripSignalTagsForDisplay } from "@/core/ai/signal-tag";
 import { extractPairTags, stripPairTagsForDisplay } from "@/core/ai/pair-tag";
-import { getTradeDraftDefaults, parseTradingPlan } from "@/core/ai/trading-plan";
+import { getTradeDraftDefaults } from "@/core/ai/trading-plan";
 import { AiMarkdownContent } from "@/components/workspace/context/ai-markdown-content";
-import { AiSignalActions } from "@/components/workspace/context/ai-signal-actions";
-import { AiSignalContextGrid } from "@/components/workspace/context/ai-signal-context-grid";
 import { AiTradeEntryDraft } from "@/stores/ai-trade-entry-store";
 
 type Props = {
@@ -21,23 +18,25 @@ type Props = {
   prompt?: string;
   signal?: AiSignalSummary | null;
   status: "complete" | "streaming" | "error";
-  /** "chat" = assistant bubbles, no trade grid. "full" = legacy dense layout. */
+  /** "chat" = minimal conversational bubble. "full" = dense card with plan. */
   layout?: "chat" | "full";
   onQuickPrompt?: (prompt: string) => void;
   onEnterTrade?: (draft: AiTradeEntryDraft) => void;
 };
 
-function badgeClass(signal: AiSignalSummary | null | undefined) {
-  if (!signal) {
-    return "border-black/10 bg-background text-foreground/80";
-  }
-  if (signal.verdict === "trade") {
-    return "border-foreground bg-foreground text-background";
-  }
-  if (signal.verdict === "watch") {
-    return "border-black/10 bg-background text-foreground/80";
-  }
-  return "border-black/8 bg-background text-foreground/60";
+/**
+ * Strip the model's most common templated headings so the assistant feels like
+ * a human talking rather than filling in a form.
+ */
+function cleanTemplateHeadings(input: string) {
+  return input
+    .replace(/^\s*(Reading market and workspace…)\s*$/gim, "")
+    .replace(
+      /^\s*(What I see|Intent|Act when|Risk if wrong|Summary|Reasoning|Plan|Setup)\s*:?\s*$/gim,
+      ""
+    )
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 export function AiSignalCard({
@@ -54,15 +53,9 @@ export function AiSignalCard({
   const setActiveProductId = useWorkspaceStore((s) => s.setActiveProductId);
 
   const displayText = useMemo(() => {
-    // Remove machine tags from what we show in prose
     const noSignal = stripSignalTagsForDisplay(content);
     const noPairs = stripPairTagsForDisplay(noSignal);
-    // Remove common "template headings" if the model slips
-    return noPairs
-      .replace(/^\s*(Reading market and workspace…)\s*$/gim, "")
-      .replace(/^\s*(What I see|Intent|Act when|Risk if wrong)\s*$/gim, "")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim();
+    return cleanTemplateHeadings(noPairs);
   }, [content]);
 
   const pairs = useMemo(() => extractPairTags(content), [content]);
@@ -75,171 +68,90 @@ export function AiSignalCard({
     return signal ?? fromTag;
   }, [content, signal, activeProductId, activeTimeframe]);
 
-  const tradingPlan = layout === "full" ? parseTradingPlan(displayText) : null;
-  const structuredPlan = tradingPlan;
-
-  const sections = extractAiResponseSections(displayText);
   const summary =
-    sections.summary ||
-    (status === "streaming" && !displayText.trim()
-      ? "Thinking…"
-      : displayText.trim());
+    displayText ||
+    (status === "streaming" ? "Thinking…" : "");
 
   const actionable = isAiSignalActionable(mergedSignal) && Boolean(onEnterTrade);
-  const reasons = mergedSignal?.reasons?.length ? mergedSignal.reasons : sections.reasonLines;
   const defaults = mergedSignal ? getTradeDraftDefaults(content, mergedSignal.bias) : null;
-  const explainPrompt = mergedSignal
-    ? `Break down ${mergedSignal.symbol} on ${mergedSignal.timeframe}. What would change your view?`
-    : null;
-  const alternativesPrompt = mergedSignal
-    ? `Any cleaner setups elsewhere vs ${mergedSignal.symbol}?`
-    : null;
 
   return (
-    <article className="border border-black/8 bg-background shadow-[0_1px_0_var(--line)]">
-      <div className="flex items-start justify-between gap-3 border-b border-black/6 px-3 py-2">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {mergedSignal ? (
-              <>
-                <span
-                  className={[
-                    "inline-flex h-5 items-center border px-2 text-[9px] font-medium uppercase tracking-[0.12em]",
-                    badgeClass(mergedSignal),
-                  ].join(" ")}
-                >
-                  {formatAiSignalVerdict(mergedSignal.verdict)}
-                </span>
-                <span className="text-[11px] text-foreground/55">
-                  {mergedSignal.symbol} · {mergedSignal.timeframe}
-                </span>
-              </>
-            ) : (
-              <span className="text-[10px] uppercase tracking-[0.14em] text-foreground/40">Lyra</span>
-            )}
-          </div>
-          {prompt ? <p className="mt-1 text-[10px] text-foreground/45">{prompt}</p> : null}
+    <div className="flex flex-col gap-2">
+      {prompt ? (
+        <p className="text-[10px] uppercase tracking-[0.14em] text-foreground/35">
+          {prompt}
+        </p>
+      ) : null}
+
+      {summary ? (
+        <AiMarkdownContent
+          content={summary}
+          className={
+            layout === "chat"
+              ? "space-y-2 text-[14px] leading-[1.55] text-foreground/85"
+              : "space-y-2 text-[12px] leading-[1.55] text-foreground/85"
+          }
+        />
+      ) : null}
+
+      {pairs.length > 0 ? (
+        <div className="flex flex-wrap gap-2 pt-1">
+          {pairs.map((pair) => (
+            <button
+              key={pair}
+              type="button"
+              onClick={() => {
+                const normalized = pair.trim().toUpperCase();
+                const productId = normalized.includes("-") ? normalized : `${normalized}-USD`;
+                setActiveProductId(productId);
+              }}
+              className="inline-flex h-7 items-center gap-1.5 rounded-[6px] border border-[var(--line-strong)] bg-[var(--panel-2)] px-2.5 text-[11px] font-medium text-foreground/85 transition hover:bg-foreground/[0.07]"
+              aria-label={`Open ${pair}`}
+              title="Open market"
+            >
+              {pair}
+              <ArrowRight className="h-3 w-3 text-foreground/45" />
+            </button>
+          ))}
         </div>
-        {mergedSignal?.confidence ? (
-          <div className="text-right">
-            <p className="text-[9px] uppercase tracking-[0.12em] text-foreground/35">Confidence</p>
-            <p className="text-[11px] font-medium text-foreground/85">{mergedSignal.confidence}%</p>
-          </div>
-        ) : null}
-      </div>
+      ) : null}
 
-      <div className="space-y-2 px-3 py-3">
-        {pairs.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {pairs.map((pair) => (
-              <button
-                key={pair}
-                type="button"
-                onClick={() => {
-                  const normalized = pair.trim().toUpperCase();
-                  const productId = normalized.includes("-") ? normalized : `${normalized}-USD`;
-                  setActiveProductId(productId);
-                }}
-                className="inline-flex h-7 items-center gap-1.5 border border-[var(--line-strong)] bg-foreground/[0.04] px-2.5 text-[10px] font-medium text-foreground/85 transition hover:bg-foreground/[0.07]"
-                aria-label={`Open ${pair}`}
-                title="Open market"
-              >
-                {pair}
-                <span className="text-foreground/45">↵</span>
-              </button>
-            ))}
-          </div>
-        ) : null}
-
-        {layout === "full" && structuredPlan ? (
-          <div className="grid gap-2 border-b border-black/6 pb-2 text-[10px] sm:grid-cols-4">
-            <div>
-              <p className="uppercase tracking-[0.12em] text-foreground/35">Market</p>
-              <p className="mt-1 text-[11px] font-medium text-foreground/90">{structuredPlan.market ?? "—"}</p>
-            </div>
-            <div>
-              <p className="uppercase tracking-[0.12em] text-foreground/35">Status</p>
-              <p className="mt-1 text-[11px] font-medium text-foreground/90">{structuredPlan.status ?? "—"}</p>
-            </div>
-            <div>
-              <p className="uppercase tracking-[0.12em] text-foreground/35">Support</p>
-              <p className="mt-1 text-[11px] font-medium text-foreground/80">{structuredPlan.support ?? "—"}</p>
-            </div>
-            <div>
-              <p className="uppercase tracking-[0.12em] text-foreground/35">Resistance</p>
-              <p className="mt-1 text-[11px] font-medium text-foreground/80">{structuredPlan.resistance ?? "—"}</p>
-            </div>
-          </div>
-        ) : null}
-
-        <AiMarkdownContent content={summary} />
-
-        {layout === "full" && structuredPlan ? (
-          <div className="grid gap-2 text-[10px] sm:grid-cols-2">
-            <div className="border border-black/8 bg-background px-2 py-2">
-              <p className="uppercase tracking-[0.12em] text-foreground/35">Long</p>
-              <dl className="mt-1 grid grid-cols-[40px_minmax(0,1fr)] gap-x-2 gap-y-1 text-foreground/72">
-                <dt>Entry</dt>
-                <dd className="truncate">{structuredPlan.long.entry ?? "—"}</dd>
-                <dt>SL</dt>
-                <dd className="truncate">{structuredPlan.long.stopLoss ?? "—"}</dd>
-                <dt>TP</dt>
-                <dd className="truncate">{structuredPlan.long.takeProfit ?? "—"}</dd>
-                <dt>Lev</dt>
-                <dd>{structuredPlan.long.leverage ? `${structuredPlan.long.leverage}x` : "—"}</dd>
-              </dl>
-            </div>
-            <div className="border border-black/8 bg-background px-2 py-2">
-              <p className="uppercase tracking-[0.12em] text-foreground/35">Short</p>
-              <dl className="mt-1 grid grid-cols-[40px_minmax(0,1fr)] gap-x-2 gap-y-1 text-foreground/72">
-                <dt>Entry</dt>
-                <dd className="truncate">{structuredPlan.short.entry ?? "—"}</dd>
-                <dt>SL</dt>
-                <dd className="truncate">{structuredPlan.short.stopLoss ?? "—"}</dd>
-                <dt>TP</dt>
-                <dd className="truncate">{structuredPlan.short.takeProfit ?? "—"}</dd>
-                <dt>Lev</dt>
-                <dd>{structuredPlan.short.leverage ? `${structuredPlan.short.leverage}x` : "—"}</dd>
-              </dl>
-            </div>
-          </div>
-        ) : null}
-
-        {layout === "full" && structuredPlan?.noTrade ? (
-          <div className="border-t border-black/6 pt-2">
-            <p className="text-[10px] uppercase tracking-[0.12em] text-foreground/35">No trade</p>
-            <p className="mt-1 text-[10px] leading-4 text-foreground/65">{structuredPlan.noTrade}</p>
-          </div>
-        ) : null}
-
-        <AiSignalContextGrid
-          signal={mergedSignal}
-          reasons={reasons}
-          trigger={mergedSignal?.trigger ?? sections.trigger}
-          invalidation={mergedSignal?.invalidation ?? sections.risk ?? sections.implication}
-        />
-
-        <AiSignalActions
-          enterLabel={mergedSignal ? `Enter ${mergedSignal.bias === "short" ? "short" : "long"}` : undefined}
-          onExplain={explainPrompt && onQuickPrompt ? () => onQuickPrompt(explainPrompt) : undefined}
-          onFindAlternative={
-            alternativesPrompt && onQuickPrompt ? () => onQuickPrompt(alternativesPrompt) : undefined
-          }
-          onEnterTrade={
-            actionable && mergedSignal
-              ? () =>
-                  onEnterTrade?.({
-                    signal: {
-                      ...mergedSignal,
-                      trigger: mergedSignal.trigger,
-                      invalidation: defaults?.stopLoss ? `SL ${defaults.stopLoss}` : mergedSignal.invalidation,
-                    },
-                    content,
-                  })
-              : undefined
-          }
-        />
-      </div>
-    </article>
+      {actionable && mergedSignal && onEnterTrade ? (
+        <div className="pt-1">
+          <button
+            type="button"
+            onClick={() =>
+              onEnterTrade({
+                signal: {
+                  ...mergedSignal,
+                  trigger: mergedSignal.trigger,
+                  invalidation: defaults?.stopLoss
+                    ? `SL ${defaults.stopLoss}`
+                    : mergedSignal.invalidation,
+                },
+                content,
+              })
+            }
+            className="inline-flex h-8 items-center gap-1.5 rounded-[6px] bg-foreground px-3 text-[12px] font-medium text-background transition hover:opacity-90"
+          >
+            {mergedSignal.bias === "short" ? "Take short" : "Take long"}
+            <ArrowRight className="h-3.5 w-3.5" />
+          </button>
+          {onQuickPrompt ? (
+            <button
+              type="button"
+              onClick={() =>
+                onQuickPrompt(
+                  `Quick counterargument to ${mergedSignal.symbol} ${mergedSignal.bias}?`
+                )
+              }
+              className="ml-2 inline-flex h-8 items-center rounded-[6px] border border-[var(--line)] px-3 text-[12px] text-foreground/70 transition hover:text-foreground"
+            >
+              Counter it
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
 }
