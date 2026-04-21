@@ -6,6 +6,7 @@ import { formatPrice } from "@/core/market/format";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { usePaperAccountSummary } from "@/hooks/use-paper-account-summary";
 import { usePaperTradeActions } from "@/hooks/use-paper-trade-actions";
+import { useDemoAccount } from "@/hooks/use-demo-account";
 import {
   getApproxLiquidationPrice,
   getEffectivePositionNotional,
@@ -43,7 +44,9 @@ function EmptyRow({ message }: { message: string }) {
 }
 
 function PositionsPanel({ currentMarketOnly }: { currentMarketOnly: boolean }) {
-  const { positions, markets } = usePaperAccountSummary();
+  const { positions: livePositions, markets } = usePaperAccountSummary();
+  const demo = useDemoAccount();
+  const positions = demo.active ? demo.positions : livePositions;
   const { activeProductId } = useWorkspaceStore();
   const tradeMutation = usePaperTradeActions();
 
@@ -209,8 +212,15 @@ function TradeHistoryPanel({ currentMarketOnly }: { currentMarketOnly: boolean }
 }
 
 function BalancesPanel() {
-  const { account, equity, unrealizedPnl } = usePaperAccountSummary();
-  if (!account) return <EmptyRow message="Connect wallet to load paper balances." />;
+  const { account, equity: liveEquity, unrealizedPnl: liveUnrealized } = usePaperAccountSummary();
+  const demo = useDemoAccount();
+  const currency = account?.currency ?? "USDT";
+  const balance = account?.cashBalance ?? (demo.active ? demo.balance : 0);
+  const equity = demo.active ? demo.equity : liveEquity;
+  const unrealizedPnl = demo.active ? demo.unrealizedPnl : liveUnrealized;
+
+  if (!account && !demo.active)
+    return <EmptyRow message="Connect wallet to load paper balances." />;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden text-[11px]">
@@ -221,9 +231,9 @@ function BalancesPanel() {
         <span className="text-right">Unrealized PnL</span>
       </div>
       <div className="grid grid-cols-4 border-b border-[var(--line)] px-3 py-2 text-foreground/85">
-        <span>{account.currency}</span>
+        <span>{currency}</span>
         <span className="text-right tabular-nums">
-          ${account.cashBalance.toLocaleString("en-US", { maximumFractionDigits: 2 })}
+          ${balance.toLocaleString("en-US", { maximumFractionDigits: 2 })}
         </span>
         <span className="text-right tabular-nums">
           ${equity.toLocaleString("en-US", { maximumFractionDigits: 2 })}

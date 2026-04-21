@@ -7,7 +7,7 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useState,
+  useSyncExternalStore,
 } from "react";
 import {
   resolveThemeMode,
@@ -31,19 +31,56 @@ const ThemeContext = createContext<ThemeContextValue>({
   toggleTheme: () => undefined,
 });
 
-function readStoredPreference(): ThemePreference {
-  if (typeof window === "undefined") {
-    return "dark";
-  }
+const THEME_PREFERENCE_EVENT = "lyra-theme-preference-change";
+
+function getServerPreference(): ThemePreference {
+  return "dark";
+}
+
+function getClientPreference(): ThemePreference {
+  if (typeof window === "undefined") return "dark";
   const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
   return stored === "light" || stored === "dark" ? stored : "dark";
 }
 
-function readSystemTheme(): ThemeMode {
+function subscribePreference(onStoreChange: () => void) {
   if (typeof window === "undefined") {
-    return "light";
+    return () => undefined;
   }
+
+  const handleStorage = (event: StorageEvent) => {
+    if (!event.key || event.key === THEME_STORAGE_KEY) {
+      onStoreChange();
+    }
+  };
+  const handleCustomEvent = () => onStoreChange();
+
+  window.addEventListener("storage", handleStorage);
+  window.addEventListener(THEME_PREFERENCE_EVENT, handleCustomEvent);
+  return () => {
+    window.removeEventListener("storage", handleStorage);
+    window.removeEventListener(THEME_PREFERENCE_EVENT, handleCustomEvent);
+  };
+}
+
+function getServerSystemTheme(): ThemeMode {
+  return "light";
+}
+
+function getClientSystemTheme(): ThemeMode {
+  if (typeof window === "undefined") return "light";
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function subscribeSystemTheme(onStoreChange: () => void) {
+  if (typeof window === "undefined") {
+    return () => undefined;
+  }
+
+  const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  const handleChange = () => onStoreChange();
+  mediaQuery.addEventListener("change", handleChange);
+  return () => mediaQuery.removeEventListener("change", handleChange);
 }
 
 function applyThemeToDocument(theme: ThemeMode) {
@@ -59,18 +96,16 @@ function applyThemeToDocument(theme: ThemeMode) {
 }
 
 export function ThemeProvider({ children }: PropsWithChildren) {
-  const [preference, setPreferenceState] = useState<ThemePreference>(() => readStoredPreference());
-  const [systemTheme, setSystemTheme] = useState<ThemeMode>(() => readSystemTheme());
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const updateSystemTheme = (event: MediaQueryListEvent) => {
-      setSystemTheme(event.matches ? "dark" : "light");
-    };
-
-    mediaQuery.addEventListener("change", updateSystemTheme);
-    return () => mediaQuery.removeEventListener("change", updateSystemTheme);
-  }, []);
+  const preference = useSyncExternalStore(
+    subscribePreference,
+    getClientPreference,
+    getServerPreference
+  );
+  const systemTheme = useSyncExternalStore(
+    subscribeSystemTheme,
+    getClientSystemTheme,
+    getServerSystemTheme
+  );
 
   const resolvedTheme = useMemo(
     () => resolveThemeMode(preference, systemTheme === "dark"),
@@ -82,15 +117,15 @@ export function ThemeProvider({ children }: PropsWithChildren) {
   }, [resolvedTheme]);
 
   const setPreference = useCallback((next: ThemePreference) => {
-    setPreferenceState(next);
     if (typeof window === "undefined") {
       return;
     }
     if (next === "system") {
       window.localStorage.removeItem(THEME_STORAGE_KEY);
-      return;
+    } else {
+      window.localStorage.setItem(THEME_STORAGE_KEY, next);
     }
-    window.localStorage.setItem(THEME_STORAGE_KEY, next);
+    window.dispatchEvent(new Event(THEME_PREFERENCE_EVENT));
   }, []);
 
   const toggleTheme = useCallback(() => {

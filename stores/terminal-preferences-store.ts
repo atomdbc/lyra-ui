@@ -15,12 +15,14 @@ type TerminalPreferencesState = {
   priceReference: PriceReference;
   chartOverlay: ChartOverlay;
   indicators: ChartIndicator[];
+  logScale: boolean;
   setMarginMode: (mode: MarginMode) => void;
   setLeverage: (value: number) => void;
   setPositionMode: (mode: PositionMode) => void;
   setPriceReference: (ref: PriceReference) => void;
   setChartOverlay: (overlay: ChartOverlay) => void;
   toggleIndicator: (indicator: ChartIndicator) => void;
+  toggleLogScale: () => void;
 };
 
 export const useTerminalPreferencesStore = create<TerminalPreferencesState>()(
@@ -32,6 +34,7 @@ export const useTerminalPreferencesStore = create<TerminalPreferencesState>()(
       priceReference: "oracle",
       chartOverlay: "chart",
       indicators: ["volume"],
+      logScale: false,
       setMarginMode: (marginMode) => set({ marginMode }),
       setLeverage: (leverage) => set({ leverage: Math.max(1, Math.min(50, leverage)) }),
       setPositionMode: (positionMode) => set({ positionMode }),
@@ -43,6 +46,7 @@ export const useTerminalPreferencesStore = create<TerminalPreferencesState>()(
             ? state.indicators.filter((item) => item !== indicator)
             : [...state.indicators, indicator],
         })),
+      toggleLogScale: () => set((state) => ({ logScale: !state.logScale })),
     }),
     {
       name: "lyra-terminal-preferences",

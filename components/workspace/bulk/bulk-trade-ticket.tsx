@@ -44,6 +44,8 @@ import {
   type MarginMode as PrefsMarginMode,
   type PositionMode,
 } from "@/stores/terminal-preferences-store";
+import { useDemoAccount } from "@/hooks/use-demo-account";
+import { BulkMarketReadCard } from "@/components/workspace/bulk/bulk-market-read-card";
 
 type OrderType =
   | "market"
@@ -193,7 +195,9 @@ export function BulkTradeTicket() {
   const workspace = usePaperWorkspace();
   const { activeProductId, activeMarketSnapshot } = useWorkspaceStore();
   const price = activeMarketSnapshot?.price ?? 0;
-  const positions = usePaperPositions();
+  const livePositions = usePaperPositions();
+  const demo = useDemoAccount();
+  const positions = demo.active ? demo.positions : livePositions;
   const activePosition =
     positions.find((position) => position.productId === activeProductId) ?? null;
   const summary = usePaperAccountSummary();
@@ -201,9 +205,11 @@ export function BulkTradeTicket() {
   const levelsMutation = usePaperPositionLevels();
 
   const maxLeverage = workspace.data?.capabilities.maxLeverage ?? 40;
-  const cashBalance = summary.account?.cashBalance ?? 0;
+  const cashBalance = demo.active ? demo.balance : summary.account?.cashBalance ?? 0;
   const currency = summary.account?.currency ?? "USDT";
   const symbolLabel = activeProductId?.replace(/-USD$/i, "") || "—";
+  const equity = demo.active ? demo.equity : summary.equity;
+  const unrealizedPnl = demo.active ? demo.unrealizedPnl : summary.unrealizedPnl;
 
   const [orderType, setOrderType] = useState<OrderType>("market");
   const marginMode = useTerminalPreferencesStore((state) => state.marginMode);
@@ -335,6 +341,7 @@ export function BulkTradeTicket() {
 
   return (
     <aside className="flex h-full min-h-0 w-full flex-col border-l border-[var(--line)] bg-[var(--panel)]">
+      <BulkMarketReadCard />
       {/* Mode bar */}
       <div className="flex items-center gap-1.5 border-b border-[var(--line)] px-3 py-2 text-[11px]">
         <MarginModePopover mode={marginMode} onChange={setMarginMode} />
@@ -747,22 +754,29 @@ export function BulkTradeTicket() {
           <SectionLabel icon={Shield} label="Account" />
           <Row
             label="Total equity"
-            value={`$${summary.equity.toLocaleString("en-US", {
+            value={`$${equity.toLocaleString("en-US", {
               maximumFractionDigits: 2,
             })}`}
           />
           <Row
             label="Unrealized PnL"
-            value={`${summary.unrealizedPnl >= 0 ? "+" : "-"}$${Math.abs(
-              summary.unrealizedPnl
+            value={`${unrealizedPnl >= 0 ? "+" : "-"}$${Math.abs(
+              unrealizedPnl
             ).toLocaleString("en-US", { maximumFractionDigits: 2 })}`}
             accent={
-              summary.unrealizedPnl >= 0
+              unrealizedPnl >= 0
                 ? "text-[var(--positive)]"
                 : "text-[var(--negative)]"
             }
           />
           <Row label="Portfolio MMR" value="0.00%" />
+          {demo.active ? (
+            <Row
+              label="Status"
+              value="Demo · connect to trade"
+              accent="text-yellow-400"
+            />
+          ) : null}
         </div>
       </div>
     </aside>

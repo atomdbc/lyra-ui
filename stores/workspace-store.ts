@@ -94,9 +94,9 @@ const createWorkspaceId = () =>
 export const useWorkspaceStore = create<WorkspaceStore>()(
   persist(
     (set) => ({
-      activeProductId: "",
-      recentProductIds: [],
-      watchlistProductIds: [],
+      activeProductId: "BTC-USD",
+      recentProductIds: ["BTC-USD"],
+      watchlistProductIds: ["BTC-USD", "ETH-USD", "SOL-USD"],
       savedWorkspaces: [],
       activeTimeframe: DEFAULT_TIMEFRAME,
       activeMarketSnapshot: null,
@@ -182,14 +182,20 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
     }),
     {
       name: "lyra-workspace-shell",
-      version: 12,
+      version: 13,
       migrate: (persistedState) => {
         const state = persistedState as Partial<PersistedWorkspaceState> & { bottomPanelOpen?: boolean };
         const legacyFocusedRegion = state.focusedRegion as string | undefined;
         return {
-          activeProductId: state.activeProductId ?? "",
-          recentProductIds: state.recentProductIds ?? [],
-          watchlistProductIds: state.watchlistProductIds ?? [],
+          activeProductId: state.activeProductId || "BTC-USD",
+          recentProductIds:
+            state.recentProductIds && state.recentProductIds.length > 0
+              ? state.recentProductIds
+              : ["BTC-USD"],
+          watchlistProductIds:
+            state.watchlistProductIds && state.watchlistProductIds.length > 0
+              ? state.watchlistProductIds
+              : ["BTC-USD", "ETH-USD", "SOL-USD"],
           savedWorkspaces: state.savedWorkspaces ?? [],
           activeTimeframe: state.activeTimeframe ?? DEFAULT_TIMEFRAME,
           activeWorkspaceId: state.activeWorkspaceId ?? null,

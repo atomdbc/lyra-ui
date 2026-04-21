@@ -51,6 +51,8 @@ export function BulkTimeframeBar() {
   const setChartOverlay = useTerminalPreferencesStore((state) => state.setChartOverlay);
   const indicators = useTerminalPreferencesStore((state) => state.indicators);
   const toggleIndicator = useTerminalPreferencesStore((state) => state.toggleIndicator);
+  const logScale = useTerminalPreferencesStore((state) => state.logScale);
+  const toggleLogScale = useTerminalPreferencesStore((state) => state.toggleLogScale);
 
   return (
     <div className="flex h-9 items-center justify-between border-b border-[var(--line)] bg-[var(--panel)] px-3 text-[11px]">
@@ -120,7 +122,14 @@ export function BulkTimeframeBar() {
 
         <button
           type="button"
-          className="inline-flex h-7 items-center gap-1 rounded-[6px] px-2 text-foreground/55 transition hover:bg-foreground/[0.05] hover:text-foreground/85"
+          onClick={toggleLogScale}
+          title={logScale ? "Linear scale" : "Log scale"}
+          className={cn(
+            "inline-flex h-7 items-center gap-1 rounded-[6px] px-2 transition",
+            logScale
+              ? "bg-yellow-500/15 text-yellow-400"
+              : "text-foreground/55 hover:bg-foreground/[0.05] hover:text-foreground/85"
+          )}
         >
           <FunctionSquare className="h-3.5 w-3.5" />
           fx

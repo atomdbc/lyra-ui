@@ -1,10 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Moon, Globe, Settings, Wallet, LogOut } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  Globe,
+  LogOut,
+  Moon,
+  Settings,
+  Sun,
+  UserRound,
+  Wallet,
+} from "lucide-react";
 import { useUIStore } from "@/stores/ui-store";
 import { useWorkspaceAuth } from "@/hooks/use-workspace-auth";
+import { useThemeMode } from "@/providers/theme-provider";
+import {
+  TerminalPopover,
+  PopoverHeader,
+  PopoverRow,
+} from "@/components/ui/terminal-popover";
 import { cn } from "@/lib/utils";
 
 function shortenWallet(value: string | null | undefined) {
@@ -17,6 +31,8 @@ export function BulkTopBar() {
   const openAiChat = useUIStore((s) => s.openAiChat);
   const auth = useWorkspaceAuth();
   const pathname = usePathname();
+  const router = useRouter();
+  const theme = useThemeMode();
   const isTerminal = pathname?.startsWith("/terminal");
   const isSignal = pathname?.startsWith("/signal");
 
@@ -52,31 +68,66 @@ export function BulkTopBar() {
           </button>
         </nav>
       </div>
-      <div className="flex items-center gap-3 text-foreground/55">
+      <div className="flex items-center gap-1 text-foreground/55">
         <button
           type="button"
-          className="inline-flex h-7 w-7 items-center justify-center rounded-[6px] hover:bg-foreground/[0.05] hover:text-foreground"
-          aria-label="Theme"
+          onClick={theme.toggleTheme}
+          className="group inline-flex h-7 w-7 items-center justify-center rounded-[6px] hover:bg-foreground/[0.05] hover:text-foreground"
+          aria-label={theme.resolvedTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          title={theme.resolvedTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
         >
-          <Moon className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          className="inline-flex h-7 w-7 items-center justify-center rounded-[6px] hover:bg-foreground/[0.05] hover:text-foreground"
-          aria-label="Language"
-        >
-          <Globe className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          className="inline-flex h-7 w-7 items-center justify-center rounded-[6px] hover:bg-foreground/[0.05] hover:text-foreground"
-          aria-label="Settings"
-        >
-          <Settings className="h-4 w-4" />
+          {theme.resolvedTheme === "dark" ? (
+            <Sun className="h-4 w-4 transition-transform duration-300 group-hover:rotate-45 group-active:scale-90" />
+          ) : (
+            <Moon className="h-4 w-4 transition-transform duration-300 group-hover:-rotate-12 group-active:scale-90" />
+          )}
         </button>
 
+        <div
+          className="inline-flex h-7 items-center gap-1.5 rounded-[6px] px-2 text-foreground/70"
+          aria-label="Language"
+          title="Language"
+        >
+          <Globe className="h-4 w-4" />
+          <span>English</span>
+        </div>
+
+        <TerminalPopover
+          width={240}
+          align="end"
+          trigger={({ open, toggle }) => (
+            <button
+              type="button"
+              onClick={toggle}
+              aria-expanded={open}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-[6px] hover:bg-foreground/[0.05] hover:text-foreground"
+              aria-label="Settings"
+            >
+              <Settings className="h-4 w-4" />
+            </button>
+          )}
+        >
+          {(close) => (
+            <>
+              <PopoverHeader>Settings</PopoverHeader>
+              <PopoverRow
+                onClick={() => {
+                  close();
+                  router.push("/profile");
+                }}
+                title={
+                  <span className="inline-flex items-center gap-2">
+                    <UserRound className="h-3.5 w-3.5" /> Profile
+                  </span>
+                }
+                subtitle="Username, avatar and visibility"
+              />
+            </>
+          )}
+        </TerminalPopover>
+
         {auth.authenticated ? (
-          <div className="flex items-center gap-1">
+          <div className="ml-1 flex items-center gap-1">
             <span className="inline-flex h-7 items-center gap-1.5 rounded-[6px] border border-[var(--line)] bg-[var(--panel-2)] px-2 font-mono text-[11px] text-foreground/90">
               <Wallet className="h-3.5 w-3.5 text-foreground/60" />
               {label}
@@ -94,7 +145,7 @@ export function BulkTopBar() {
           <button
             type="button"
             onClick={() => auth.login()}
-            className="inline-flex h-7 items-center gap-1.5 rounded-[6px] border border-[var(--line-strong)] bg-foreground px-2.5 text-[11px] font-medium text-background transition hover:opacity-90"
+            className="ml-1 inline-flex h-7 items-center gap-1.5 rounded-[6px] border border-[var(--line-strong)] bg-foreground px-2.5 text-[11px] font-medium text-background transition hover:opacity-90"
           >
             <Wallet className="h-3.5 w-3.5" />
             Connect

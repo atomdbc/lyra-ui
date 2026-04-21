@@ -21,6 +21,8 @@ import { BulkTimeframeBar } from "@/components/workspace/bulk/bulk-timeframe-bar
 import { BulkOrderbook } from "@/components/workspace/bulk/bulk-orderbook";
 import { BulkTradeTicket } from "@/components/workspace/bulk/bulk-trade-ticket";
 import { BulkBottomTabs } from "@/components/workspace/bulk/bulk-bottom-tabs";
+import { BulkAssistantBeacon } from "@/components/workspace/bulk/bulk-assistant-beacon";
+import { ChartDrawOverlay } from "@/components/workspace/bulk/chart-draw-overlay";
 import { useTpSlWatcher } from "@/hooks/use-tp-sl-watcher";
 import { useTerminalPreferencesStore } from "@/stores/terminal-preferences-store";
 import {
@@ -62,12 +64,15 @@ export function BulkTerminalShell() {
                 <BulkChartToolRail />
                 <div className="relative min-h-0 min-w-0 flex-1 bg-background">
                   {chartOverlay === "chart" ? (
-                    <LiveMarketChart
-                      productId={activeProductId}
-                      timeframe={activeTimeframe}
-                      snapshot={activeMarketSnapshot}
-                      activePosition={activePosition}
-                    />
+                    <>
+                      <LiveMarketChart
+                        productId={activeProductId}
+                        timeframe={activeTimeframe}
+                        snapshot={activeMarketSnapshot}
+                        activePosition={activePosition}
+                      />
+                      <ChartDrawOverlay />
+                    </>
                   ) : chartOverlay === "depth" ? (
                     <DepthSurface />
                   ) : (
@@ -94,6 +99,7 @@ export function BulkTerminalShell() {
         </aside>
       </div>
 
+      <BulkAssistantBeacon />
       <CommandPalette />
       <WorkspaceAiChatModal />
       <AiTradeEntryModal />

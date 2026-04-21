@@ -89,17 +89,46 @@ export function TerminalPopover({
     };
   }, [open]);
 
-  const toggle = () => setOpen((prev) => !prev);
+  const toggle = () => {
+    setOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        // Compute immediately on open so the panel shows on first paint
+        // instead of after the next layout commit.
+        setTimeout(() => computePosition(), 0);
+      }
+      return next;
+    });
+  };
   const close = () => setOpen(false);
 
+  // Fallback coords so the panel always shows something anchored; real coords
+  // land on the next tick via computePosition.
+  const fallback = useMemo(() => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return { top: 48, left: 12 };
+    const margin = 8;
+    const panelWidth = Math.min(
+      width,
+      typeof window !== "undefined" ? window.innerWidth - margin * 2 : width
+    );
+    const left =
+      align === "end" ? Math.round(rect.right - panelWidth) : Math.round(rect.left);
+    return {
+      top: Math.round(rect.bottom + 6),
+      left: Math.max(margin, Math.min(left, (typeof window !== "undefined" ? window.innerWidth : 1024) - panelWidth - margin)),
+    };
+  }, [open, align, width]);
+
   const panel = useMemo(() => {
-    if (!open || !pos) return null;
+    if (!open) return null;
+    const coords = pos ?? fallback;
     return (
       <div
         ref={panelRef}
         style={{
-          top: pos.top,
-          left: pos.left,
+          top: coords.top,
+          left: coords.left,
           width: Math.min(width, typeof window !== "undefined" ? window.innerWidth - 16 : width),
         }}
         className={cn(
@@ -111,7 +140,7 @@ export function TerminalPopover({
       </div>
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, pos, width, className, children]);
+  }, [open, pos, fallback, width, className, children]);
 
   return (
     <div ref={triggerRef} className="relative">
