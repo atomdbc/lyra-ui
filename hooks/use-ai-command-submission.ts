@@ -47,8 +47,8 @@ export function useAiCommandSubmission() {
         displayName: auth.displayName,
       };
 
-      let threadId = currentThreadId;
-      if (!threadId) {
+      let activeThreadId = currentThreadId;
+      if (!activeThreadId) {
         const { thread } = await createAiThreadRequest(
           accessToken,
           {
@@ -61,10 +61,16 @@ export function useAiCommandSubmission() {
           },
           identity
         );
-        threadId = thread.id;
+        activeThreadId = thread.id;
         upsertThread(thread);
         setCurrentThreadId(thread.id);
       }
+
+      if (!activeThreadId) {
+        return null;
+      }
+      const threadId = activeThreadId;
+      let resolvedThreadId = threadId;
 
       const userMessageId = `optimistic-user-${Date.now()}`;
       const assistantMessageId = `optimistic-assistant-${Date.now()}`;
@@ -129,10 +135,10 @@ export function useAiCommandSubmission() {
                     : message
                 )
               ),
-            onDone: ({ threadId: resolvedThreadId, content, responseId, signal }) => {
-              if (resolvedThreadId && resolvedThreadId !== threadId) {
-                threadId = resolvedThreadId;
-                setCurrentThreadId(resolvedThreadId);
+            onDone: ({ threadId: streamedThreadId, content, responseId, signal }) => {
+              if (streamedThreadId && streamedThreadId !== resolvedThreadId) {
+                resolvedThreadId = streamedThreadId;
+                setCurrentThreadId(streamedThreadId);
               }
               setMessages((current) =>
                 current.map((message) =>
@@ -150,7 +156,7 @@ export function useAiCommandSubmission() {
                 )
               );
               const existingThread = useAiStore.getState().threads.find(
-                (item) => item.id === threadId
+                (item) => item.id === resolvedThreadId
               );
               if (!existingThread) {
                 return;
@@ -182,10 +188,10 @@ export function useAiCommandSubmission() {
               : item
           )
         );
-        return threadId;
+        return resolvedThreadId;
       }
 
-      return threadId;
+      return resolvedThreadId;
     },
     [auth, currentThreadId, queryClient, setCurrentThreadId, upsertThread]
   );
