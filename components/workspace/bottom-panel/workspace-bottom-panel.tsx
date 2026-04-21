@@ -12,6 +12,7 @@ import { WorkspaceAiPanel } from "@/components/workspace/context/workspace-ai-pa
 import { useUIStore } from "@/stores/ui-store";
 import { useTerminalStore } from "@/stores/terminal-store";
 import { BottomPanelTab, useWorkspaceStore } from "@/stores/workspace-store";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const TABS: Array<{ id: BottomPanelTab; label: string; icon?: typeof Sparkles }> = [
   { id: "positions", label: "Positions" },
@@ -123,29 +124,22 @@ export function WorkspaceBottomPanel() {
         </div>
       ) : null}
       <div className="flex h-9 items-center justify-between border-b border-[var(--line)] px-2">
-        <div className="flex min-w-0 items-center gap-1">
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            const active = bottomPanelOpen && bottomPanelTab === tab.id;
-
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setBottomPanelTab(tab.id)}
-                className={[
-                  "inline-flex h-7 items-center gap-1 border px-2.5 text-[10px] font-medium transition",
-                  active
-                    ? "border-[var(--line-strong)] bg-foreground text-background"
-                    : "border-transparent text-foreground/50 hover:border-[var(--line)] hover:bg-foreground/[0.04] hover:text-foreground/85",
-                ].join(" ")}
-              >
-                {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
+        <Tabs
+          value={bottomPanelTab}
+          onValueChange={(value) => setBottomPanelTab(value as BottomPanelTab)}
+        >
+          <TabsList className="h-7 border-0 bg-transparent p-0">
+            {TABS.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <TabsTrigger key={tab.id} value={tab.id} className="h-7">
+                  {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
+                  {tab.label}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        </Tabs>
         <button
           type="button"
           onClick={() => {
