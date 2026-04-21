@@ -9,6 +9,7 @@ import {
   isAiSignalActionable,
 } from "@/core/ai/signal";
 import { tryParseSignalTagToSummary, stripSignalTagsForDisplay } from "@/core/ai/signal-tag";
+import { extractPairTags, stripPairTagsForDisplay } from "@/core/ai/pair-tag";
 import { getTradeDraftDefaults, parseTradingPlan } from "@/core/ai/trading-plan";
 import { AiMarkdownContent } from "@/components/workspace/context/ai-markdown-content";
 import { AiSignalActions } from "@/components/workspace/context/ai-signal-actions";
@@ -50,8 +51,21 @@ export function AiSignalCard({
 }: Props) {
   const activeProductId = useWorkspaceStore((s) => s.activeProductId);
   const activeTimeframe = useWorkspaceStore((s) => s.activeTimeframe);
+  const setActiveProductId = useWorkspaceStore((s) => s.setActiveProductId);
 
-  const displayText = useMemo(() => stripSignalTagsForDisplay(content), [content]);
+  const displayText = useMemo(() => {
+    // Remove machine tags from what we show in prose
+    const noSignal = stripSignalTagsForDisplay(content);
+    const noPairs = stripPairTagsForDisplay(noSignal);
+    // Remove common "template headings" if the model slips
+    return noPairs
+      .replace(/^\s*(Reading market and workspace…)\s*$/gim, "")
+      .replace(/^\s*(What I see|Intent|Act when|Risk if wrong)\s*$/gim, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }, [content]);
+
+  const pairs = useMemo(() => extractPairTags(content), [content]);
 
   const mergedSignal = useMemo(() => {
     const fromTag = tryParseSignalTagToSummary(content, {
@@ -68,7 +82,7 @@ export function AiSignalCard({
   const summary =
     sections.summary ||
     (status === "streaming" && !displayText.trim()
-      ? "Reading market and workspace…"
+      ? "Thinking…"
       : displayText.trim());
 
   const actionable = isAiSignalActionable(mergedSignal) && Boolean(onEnterTrade);
@@ -115,6 +129,28 @@ export function AiSignalCard({
       </div>
 
       <div className="space-y-2 px-3 py-3">
+        {pairs.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {pairs.map((pair) => (
+              <button
+                key={pair}
+                type="button"
+                onClick={() => {
+                  const normalized = pair.trim().toUpperCase();
+                  const productId = normalized.includes("-") ? normalized : `${normalized}-USD`;
+                  setActiveProductId(productId);
+                }}
+                className="inline-flex h-7 items-center gap-1.5 border border-[var(--line-strong)] bg-foreground/[0.04] px-2.5 text-[10px] font-medium text-foreground/85 transition hover:bg-foreground/[0.07]"
+                aria-label={`Open ${pair}`}
+                title="Open market"
+              >
+                {pair}
+                <span className="text-foreground/45">↵</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+
         {layout === "full" && structuredPlan ? (
           <div className="grid gap-2 border-b border-black/6 pb-2 text-[10px] sm:grid-cols-4">
             <div>

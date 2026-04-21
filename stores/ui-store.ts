@@ -6,6 +6,7 @@ type UIStore = {
   commandPaletteOpen: boolean;
   commandPaletteQuery: string;
   aiPanelDetached: boolean;
+  aiChatOpen: boolean;
   walletAction: WalletAction | null;
   walletActionRequestId: number;
   openCommandPalette: (query?: string) => void;
@@ -15,6 +16,8 @@ type UIStore = {
   detachAiPanel: () => void;
   dockAiPanel: () => void;
   toggleAiPanelDetached: () => void;
+  openAiChat: () => void;
+  closeAiChat: () => void;
   requestWalletAction: (action: WalletAction) => void;
   clearWalletAction: () => void;
 };
@@ -23,6 +26,7 @@ export const useUIStore = create<UIStore>((set) => ({
   commandPaletteOpen: false,
   commandPaletteQuery: "",
   aiPanelDetached: false,
+  aiChatOpen: false,
   walletAction: null,
   walletActionRequestId: 0,
   openCommandPalette: (query = "") => set({ commandPaletteOpen: true, commandPaletteQuery: query }),
@@ -36,6 +40,8 @@ export const useUIStore = create<UIStore>((set) => ({
   detachAiPanel: () => set({ aiPanelDetached: true }),
   dockAiPanel: () => set({ aiPanelDetached: false }),
   toggleAiPanelDetached: () => set((state) => ({ aiPanelDetached: !state.aiPanelDetached })),
+  openAiChat: () => set({ aiChatOpen: true }),
+  closeAiChat: () => set({ aiChatOpen: false }),
   requestWalletAction: (action) =>
     set(() => ({
       walletAction: action,

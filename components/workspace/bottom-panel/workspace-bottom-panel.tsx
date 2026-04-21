@@ -1,7 +1,7 @@
 "use client";
 
 import { PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
-import { ChevronDown, Sparkles, TerminalSquare } from "lucide-react";
+import { ChevronDown, TerminalSquare } from "lucide-react";
 import { TerminalPanelContent } from "@/components/terminal/lyra-terminal-system";
 import { WorkspaceActivityPanel } from "@/components/workspace/bottom-panel/workspace-activity-panel";
 import { WorkspaceLeaderboardPanel } from "@/components/workspace/bottom-panel/workspace-leaderboard-panel";
@@ -14,12 +14,11 @@ import { useTerminalStore } from "@/stores/terminal-store";
 import { BottomPanelTab, useWorkspaceStore } from "@/stores/workspace-store";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-const TABS: Array<{ id: BottomPanelTab; label: string; icon?: typeof Sparkles }> = [
+const TABS: Array<{ id: BottomPanelTab; label: string; icon?: typeof TerminalSquare }> = [
   { id: "positions", label: "Positions" },
   { id: "trades", label: "Trades" },
   { id: "activity", label: "Activity" },
   { id: "leaderboard", label: "Leaderboard" },
-  { id: "ai", label: "AI", icon: Sparkles },
   { id: "terminal", label: "Terminal", icon: TerminalSquare },
 ];
 
@@ -54,6 +53,13 @@ export function WorkspaceBottomPanel() {
   const aiPanelDetached = useUIStore((state) => state.aiPanelDetached);
   const resizeStartRef = useRef<{ y: number; height: number } | null>(null);
   const [isResizing, setIsResizing] = useState(false);
+
+  useEffect(() => {
+    // AI chat moved to the sidebar modal; keep the bottom panel out of that mode.
+    if (bottomPanelTab === "ai") {
+      setBottomPanelTab("positions");
+    }
+  }, [bottomPanelTab, setBottomPanelTab]);
 
   useEffect(() => {
     if (!isResizing) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { MessageSquareText } from "lucide-react";
 import { AccountSummaryCard } from "@/components/workspace/context/account-summary-card";
 import { ContextOnboardingNote } from "@/components/workspace/context/context-onboarding-note";
 import { PaperBalanceResetAction } from "@/components/workspace/context/paper-balance-reset-action";
@@ -11,12 +12,14 @@ import { useMarketUniverse } from "@/hooks/use-market-universe";
 import { usePaperAccountSummary } from "@/hooks/use-paper-account-summary";
 import { useWorkspaceAuth } from "@/hooks/use-workspace-auth";
 import { useWorkspaceShellState } from "@/hooks/use-workspace-shell-state";
+import { useUIStore } from "@/stores/ui-store";
 
 const EMPTY_MARKETS: MarketDirectoryItem[] = [];
 
 export function ContextIntelligencePanel() {
   const auth = useWorkspaceAuth();
   const workspace = useWorkspaceShellState();
+  const openAiChat = useUIStore((s) => s.openAiChat);
   const marketUniverse = useMarketUniverse();
   const paperSummary = usePaperAccountSummary();
 
@@ -33,11 +36,22 @@ export function ContextIntelligencePanel() {
       className="flex h-full min-h-0 flex-col overflow-hidden border-l border-black/8 bg-background"
       onPointerDown={() => workspace.setFocusedRegion("context")}
     >
-      <div className="border-b border-black/8 px-2 py-1.5">
-        <p className="text-[10px] uppercase tracking-[0.18em] text-black/36">Context</p>
-        <p className="mt-1 text-[11px] text-black/78">
-          {activeMarket?.symbol ?? "Market"} · {workspace.activeTimeframe}
-        </p>
+      <div className="flex items-start justify-between gap-2 border-b border-black/8 px-2 py-1.5">
+        <div className="min-w-0">
+          <p className="text-[10px] uppercase tracking-[0.18em] text-black/36">Context</p>
+          <p className="mt-1 truncate text-[11px] text-black/78">
+            {activeMarket?.symbol ?? "Market"} · {workspace.activeTimeframe}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={openAiChat}
+          className="inline-flex h-8 w-8 items-center justify-center border border-black/10 bg-white text-black/60 transition hover:bg-black/[0.03] hover:text-black/82"
+          aria-label="Open assistant"
+          title="Assistant"
+        >
+          <MessageSquareText className="h-4 w-4" />
+        </button>
       </div>
 
       {account ? (

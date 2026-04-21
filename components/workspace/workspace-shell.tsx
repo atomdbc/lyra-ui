@@ -3,6 +3,7 @@
 import { Group, Panel } from "react-resizable-panels";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { WorkspaceAiFloatingPanel } from "@/components/workspace/context/workspace-ai-floating-panel";
+import { WorkspaceAiChatModal } from "@/components/workspace/context/workspace-ai-chat-modal";
 import { ContextIntelligencePanel } from "@/components/workspace/context/context-intelligence-panel";
 import { AiTradeEntryModal } from "@/components/workspace/context/ai-trade-entry-modal";
 import { TerminalOnboardingModal } from "@/components/workspace/onboarding/terminal-onboarding-modal";
@@ -48,6 +49,7 @@ export function WorkspaceShell() {
 
       <CommandPalette />
       <WorkspaceAiFloatingPanel />
+      <WorkspaceAiChatModal />
       <AiTradeEntryModal />
       <TerminalOnboardingModal />
     </main>
