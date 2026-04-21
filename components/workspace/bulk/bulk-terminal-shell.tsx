@@ -28,7 +28,7 @@ export function BulkTerminalShell() {
     positions.find((position) => position.productId === activeProductId) ?? null;
 
   return (
-    <main className="relative flex h-screen w-full flex-col bg-background text-foreground">
+    <main className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-background text-foreground">
       <WorkspaceHotkeys />
       <WorkspaceSessionSync />
       <WorkspaceRealtimeSync />
@@ -39,7 +39,7 @@ export function BulkTerminalShell() {
       <BulkMiniTickerStrip />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* Main column: chart + bottom tabs */}
+        {/* Main column: chart + bottom tabs (flex-1 so it absorbs remaining width) */}
         <section className="flex min-w-0 flex-1 flex-col">
           <BulkPairHeader />
           <BulkTimeframeBar />
@@ -54,20 +54,20 @@ export function BulkTerminalShell() {
               />
             </div>
           </div>
-          <div className="h-[200px] min-h-[200px] shrink-0">
+          <div className="h-[240px] min-h-[240px] shrink-0">
             <BulkBottomTabs />
           </div>
         </section>
 
         {/* Middle column: orderbook */}
-        <div className="hidden w-[260px] shrink-0 lg:flex">
+        <aside className="hidden w-[18%] min-w-[240px] max-w-[320px] shrink-0 md:flex">
           <BulkOrderbook />
-        </div>
+        </aside>
 
         {/* Right column: trade ticket */}
-        <div className="hidden w-[280px] shrink-0 xl:flex">
+        <aside className="hidden w-[22%] min-w-[280px] max-w-[360px] shrink-0 lg:flex">
           <BulkTradeTicket />
-        </div>
+        </aside>
       </div>
 
       <CommandPalette />

@@ -5,7 +5,7 @@ export default function TerminalPage() {
   return (
     <>
       <MobileHoldingPage />
-      <div className="hidden md:block">
+      <div className="hidden h-[100dvh] md:block">
         <BulkTerminalShell />
       </div>
     </>
