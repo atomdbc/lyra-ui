@@ -68,6 +68,23 @@ export async function executePaperTrade(
   }
 
   const payload = readRpcResult(data as RpcResponse[] | RpcResponse | null, input.action);
+  const userNote = "userNote" in input ? input.userNote ?? null : null;
+  const strategyTag = "strategyTag" in input ? input.strategyTag ?? null : null;
+  const plannedRr = "plannedRr" in input ? input.plannedRr ?? null : null;
+  if (userNote !== null || strategyTag !== null || plannedRr !== null) {
+    await supabase
+      .from("paper_trades")
+      .update({
+        user_note: userNote,
+        strategy_tag: strategyTag,
+        planned_rr: plannedRr,
+      })
+      .eq("id", String(payload.trade.id));
+    payload.trade.user_note = userNote;
+    payload.trade.strategy_tag = strategyTag;
+    payload.trade.planned_rr = plannedRr;
+  }
+
   return {
     account: mapPaperAccount(payload.account),
     position: payload.position ? mapPaperPosition(payload.position) : null,

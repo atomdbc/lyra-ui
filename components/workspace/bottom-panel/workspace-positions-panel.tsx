@@ -16,7 +16,7 @@ export function WorkspacePositionsPanel() {
 
   if (positions.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center text-[12px] text-black/38">
+      <div className="flex h-full items-center justify-center text-[12px] text-foreground/45">
         No open positions.
       </div>
     );
@@ -24,7 +24,7 @@ export function WorkspacePositionsPanel() {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="grid shrink-0 grid-cols-[1.2fr_0.7fr_1fr_1fr_0.9fr] border-b border-black/8 px-3 py-2 text-[10px] uppercase tracking-[0.12em] text-black/32">
+      <div className="grid shrink-0 grid-cols-[1.2fr_0.7fr_1fr_1fr_0.9fr] border-b border-[var(--line)] px-3 py-2 text-[10px] uppercase tracking-[0.12em] text-foreground/40">
         <span>Market</span>
         <span>Side</span>
         <span>Risk</span>
@@ -46,28 +46,28 @@ export function WorkspacePositionsPanel() {
               key={position.id}
               type="button"
               onClick={() => setActiveProductId(position.productId)}
-              className="grid w-full grid-cols-[1.2fr_0.7fr_1fr_1fr_0.9fr] items-center border-b border-black/6 px-3 py-2 text-left transition hover:bg-black/[0.02]"
+              className="grid w-full grid-cols-[1.2fr_0.7fr_1fr_1fr_0.9fr] items-center border-b border-[var(--line)] px-3 py-2 text-left transition hover:bg-foreground/[0.03]"
             >
               <div className="min-w-0">
-                <p className="truncate text-[12px] font-medium text-black/84">{position.symbol}</p>
-                <p className="text-[10px] text-black/40">
+                <p className="truncate text-[12px] font-medium text-foreground/88">{position.symbol}</p>
+                <p className="text-[10px] text-foreground/42">
                   Entry {formatPrice(position.entryPrice)} · Mark {formatPrice(currentPrice)}
                 </p>
               </div>
-              <span className="text-[11px] uppercase text-black/60">{position.direction} · {position.leverage}x</span>
+              <span className="text-[11px] uppercase text-foreground/58">{position.direction} · {position.leverage}x</span>
               <div>
-                <p className="text-[11px] text-black/72">Liq {formatPrice(liquidationPrice ?? undefined)}</p>
-                <p className="text-[10px] text-black/40">Margin {formatPrice(position.marginUsed)}</p>
+                <p className="text-[11px] text-foreground/75">Liq {formatPrice(liquidationPrice ?? undefined)}</p>
+                <p className="text-[10px] text-foreground/42">Margin {formatPrice(position.marginUsed)}</p>
               </div>
               <div>
-                <p className="text-[11px] text-black/72">{formatQuantity(position.quantity)} {position.symbol}</p>
-                <p className="text-[10px] text-black/40">Exposure {formatPrice(position.marginUsed * position.leverage)}</p>
+                <p className="text-[11px] text-foreground/75">{formatQuantity(position.quantity)} {position.symbol}</p>
+                <p className="text-[10px] text-foreground/42">Exposure {formatPrice(position.marginUsed * position.leverage)}</p>
               </div>
               <div className="text-right">
                 <span
                   className={[
                     "text-[13px] font-semibold tabular-nums",
-                    unrealizedPnl >= 0 ? "text-emerald-700" : "text-red-700",
+                    unrealizedPnl >= 0 ? "text-[var(--positive)]" : "text-[var(--negative)]",
                   ].join(" ")}
                 >
                   {unrealizedPnl >= 0 ? "+" : ""}

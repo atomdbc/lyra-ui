@@ -71,6 +71,8 @@ function shouldIncludeMarketScan(message: string) {
     value.includes("trade") ||
     value.includes("setup") ||
     value.includes("opportunity") ||
+    value.includes("all pairs") ||
+    value.includes("all markets") ||
     value.includes("exploit") ||
     value.includes("explore") ||
     value.includes("other market") ||
@@ -79,6 +81,19 @@ function shouldIncludeMarketScan(message: string) {
     value.includes("what should i trade") ||
     value.includes("what does the market say") ||
     value.includes("market say")
+  );
+}
+
+function shouldScanEntireUniverse(message: string) {
+  const value = message.toLowerCase();
+  return (
+    value.includes("all pairs") ||
+    value.includes("entire pairs") ||
+    value.includes("entire market") ||
+    value.includes("entire markets") ||
+    value.includes("all markets") ||
+    value.includes("scan everything") ||
+    value.includes("whole market")
   );
 }
 
@@ -163,7 +178,7 @@ function buildMessages(args: {
     {
       role: "system",
       content:
-        "Tool calling is unavailable for this model. Use the provided workspace context, history, thread memory, and research payload directly.",
+        "Tool calling is unavailable for this model. Use the provided workspace context, history, thread memory, market scan payload, and research payload directly. Do not claim the ranked market scan tool is unavailable when ranked market scan data is present.",
     },
     { role: "system", content: contextBlock },
     ...historyMessages,
@@ -179,6 +194,9 @@ export async function streamAiChatWithChatCompletions(args: {
   instructions: string;
   callbacks: AiChatStreamCallbacks;
 }) {
+  const includeMarketScan = shouldIncludeMarketScan(args.payload.message);
+  const wholeMarketScan = shouldScanEntireUniverse(args.payload.message);
+
   const [history, marketHistory, tradingSnapshot, threadMemory, research, marketScan] = await Promise.all([
     listAiMessages(args.thread.id),
     shouldIncludeHistorySummary(args.payload.message)
@@ -205,12 +223,13 @@ export async function streamAiChatWithChatCompletions(args: {
     shouldIncludeResearch(args.payload.message)
       ? searchPublicMarketResearch(args.payload.message).catch(() => null)
       : Promise.resolve(null),
-    shouldIncludeMarketScan(args.payload.message)
+    includeMarketScan
       ? scanMarketsForSetups({
-          limit: 5,
+          limit: wholeMarketScan ? 8 : 5,
+          candidateCount: wholeMarketScan ? 40 : 28,
           includeProductId: args.effectiveSelection.activeProductId,
-        }).catch(() => null)
-      : Promise.resolve(null),
+        }).catch(() => [])
+      : Promise.resolve([]),
   ]);
   const primaryOpportunity = pickPrimaryOpportunity(
     marketScan,

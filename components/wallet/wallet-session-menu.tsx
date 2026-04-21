@@ -12,16 +12,20 @@ export function WalletSessionMenu({
   open,
   anchorRef,
   menuRef,
+  connected,
   walletAddress,
   walletCount,
+  onOpenProfile,
   onConnectWallet,
   onDisconnect,
 }: {
   open: boolean;
   anchorRef: RefObject<HTMLDivElement | null>;
   menuRef: RefObject<HTMLDivElement | null>;
+  connected: boolean;
   walletAddress?: string;
   walletCount: number;
+  onOpenProfile: () => void;
   onConnectWallet: () => void;
   onDisconnect: () => void;
 }) {
@@ -74,30 +78,66 @@ export function WalletSessionMenu({
           <p className="mt-1 text-[10px] text-black/84">{formatAddress(walletAddress)}</p>
         </div>
 
-        <div className="border-b border-black/8 px-2 py-1.5 text-[10px] text-black/46">
-          {walletCount === 1 ? "1 linked wallet" : `${walletCount} linked wallets`}
-        </div>
+        {connected ? (
+          <div className="border-b border-black/8 px-2 py-1.5 text-[10px] text-black/46">
+            {walletCount === 1 ? "1 linked wallet" : `${walletCount} linked wallets`}
+          </div>
+        ) : null}
 
         <button
           type="button"
-          onClick={onConnectWallet}
+          onClick={onOpenProfile}
           className="flex h-8 w-full items-center justify-between border-b border-black/6 px-2 text-left text-[10px] text-black/84 transition hover:bg-black/[0.02]"
         >
-          <span>Connect wallet</span>
-          <span className="text-[9px] uppercase tracking-[0.14em] text-black/30">Privy</span>
+          <span>Profile settings</span>
+          <span className="text-[9px] uppercase tracking-[0.14em] text-black/30">Account</span>
         </button>
 
-        <button
-          type="button"
-          onClick={onDisconnect}
-          className="flex h-8 w-full items-center justify-between px-2 text-left text-[10px] text-black/84 transition hover:bg-black/[0.02]"
-        >
-          <span>Disconnect session</span>
-          <span className="text-[9px] uppercase tracking-[0.14em] text-black/30">Logout</span>
-        </button>
+        {connected ? (
+          <button
+            type="button"
+            onClick={onConnectWallet}
+            className="flex h-8 w-full items-center justify-between border-b border-black/6 px-2 text-left text-[10px] text-black/84 transition hover:bg-black/[0.02]"
+          >
+            <span>Link another wallet</span>
+            <span className="text-[9px] uppercase tracking-[0.14em] text-black/30">Add</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onConnectWallet}
+            className="flex h-8 w-full items-center justify-between border-b border-black/6 px-2 text-left text-[10px] text-black/84 transition hover:bg-black/[0.02]"
+          >
+            <span>Connect wallet</span>
+            <span className="text-[9px] uppercase tracking-[0.14em] text-black/30">Privy</span>
+          </button>
+        )}
+
+        {connected ? (
+          <button
+            type="button"
+            onClick={onDisconnect}
+            className="flex h-8 w-full items-center justify-between px-2 text-left text-[10px] text-black/84 transition hover:bg-black/[0.02]"
+          >
+            <span>Disconnect</span>
+            <span className="text-[9px] uppercase tracking-[0.14em] text-black/30">Logout</span>
+          </button>
+        ) : null}
       </div>
     );
-  }, [canUsePortal, menuRef, onConnectWallet, onDisconnect, open, position.left, position.top, walletAddress, walletCount]);
+  }, [
+    canUsePortal,
+    connected,
+    menuRef,
+    onConnectWallet,
+    onDisconnect,
+    onOpenProfile,
+    open,
+    position.left,
+    position.top,
+    walletAddress,
+    walletCount,
+  ]);
 
   if (!content) {
     return null;

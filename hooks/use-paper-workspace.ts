@@ -11,8 +11,13 @@ export function usePaperWorkspace() {
   return useQuery({
     queryKey: [...workspaceContextQueryKey, auth.userId],
     enabled: auth.ready && auth.authenticated,
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+    /** Re-fetch so TP/SL auto-close (server reconcile on context load) runs periodically while positions are open */
+    refetchInterval: (query) => {
+      const positions = query.state.data?.positions?.length ?? 0;
+      return positions > 0 ? 12_000 : false;
+    },
     queryFn: async () => {
       const accessToken = await auth.getAccessToken();
       if (!accessToken) {

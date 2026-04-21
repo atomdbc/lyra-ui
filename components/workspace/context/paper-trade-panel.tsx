@@ -1,9 +1,10 @@
 "use client";
 
 import { TradeSurfaceToolbar } from "@/components/workspace/context/trade-surface-toolbar";
+import { PreconnectConversionPanel } from "@/components/workspace/context/preconnect-conversion-panel";
 import { PaperPositionManagementPanel } from "@/components/workspace/context/paper-position-management-panel";
 import { PaperTradeSetupPanel } from "@/components/workspace/context/paper-trade-setup-panel";
-import { PAPER_LEVERAGE_MAX } from "@/core/paper/leverage";
+import { PAPER_LEVERAGE_MAX, resolvePaperExecutionLeverageCap } from "@/core/paper/leverage";
 import { usePaperWorkspace } from "@/hooks/use-paper-workspace";
 import { PaperPosition } from "@/core/paper/types";
 
@@ -13,6 +14,8 @@ export function PaperTradePanel({
   productId,
   price,
   availableBalance,
+  /** Hyperliquid venue max; pass null for paper so leverage is not capped by venue (e.g. 3x on some listings). */
+  marketMaxLeverage,
   activePosition,
   onConnectWallet,
 }: {
@@ -21,29 +24,20 @@ export function PaperTradePanel({
   productId: string;
   price: number;
   availableBalance: number;
+  marketMaxLeverage: number | null;
   activePosition: PaperPosition | null;
   onConnectWallet: () => void;
 }) {
   const workspace = usePaperWorkspace();
-  const executionMaxLeverage = workspace.data?.capabilities.maxLeverage ?? 3;
+  const executionMaxLeverage = resolvePaperExecutionLeverageCap({
+    workspaceMaxLeverage: workspace.data?.capabilities.maxLeverage,
+    marketMaxLeverage,
+    sliderMaxLeverage: PAPER_LEVERAGE_MAX,
+  });
 
   if (!authenticated) {
     return (
-      <section className="border-b border-black/8">
-        <TradeSurfaceToolbar
-          title="Trade center"
-          subtitle="Connect a wallet to begin paper trading."
-        />
-        <div className="px-2 py-1.5">
-          <button
-            type="button"
-            onClick={onConnectWallet}
-            className="h-8 border border-black/10 bg-black px-3 text-[10px] font-medium text-white transition hover:bg-black/88"
-          >
-            Connect wallet
-          </button>
-        </div>
-      </section>
+      <PreconnectConversionPanel productId={productId} onConnect={onConnectWallet} />
     );
   }
 

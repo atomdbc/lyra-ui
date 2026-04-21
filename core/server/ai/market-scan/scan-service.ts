@@ -110,7 +110,16 @@ export async function scanMarketsForSetups(args: ScanArgs = {}) {
     return cachedScan.opportunities.slice(0, limit);
   }
 
-  const opportunities = await buildOpportunityUniverse(candidateCount);
+  let opportunities: MarketOpportunity[];
+  try {
+    opportunities = await buildOpportunityUniverse(candidateCount);
+  } catch {
+    if (cachedScan?.opportunities.length) {
+      opportunities = cachedScan.opportunities;
+    } else {
+      return [];
+    }
+  }
   if (useCache) {
     cachedScan = {
       expiresAt: Date.now() + SCAN_CACHE_TTL_MS,

@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { AccountSummaryCard } from "@/components/workspace/context/account-summary-card";
 import { ContextOnboardingNote } from "@/components/workspace/context/context-onboarding-note";
+import { PaperBalanceResetAction } from "@/components/workspace/context/paper-balance-reset-action";
 import { PaperTradePanel } from "@/components/workspace/context/paper-trade-panel";
 import { SelectedMarketCard } from "@/components/workspace/context/selected-market-card";
 import { MarketDirectoryItem } from "@/core/market/types";
@@ -44,14 +45,17 @@ export function ContextIntelligencePanel() {
       ) : null}
 
       {account ? (
-        <AccountSummaryCard
-          currency={account.currency}
-          cashBalance={account.cashBalance}
-          equity={equity}
-          realizedPnl={account.realizedPnl}
-          unrealizedPnl={unrealizedPnl}
-          positionCount={positions.length}
-        />
+        <>
+          <AccountSummaryCard
+            currency={account.currency}
+            cashBalance={account.cashBalance}
+            equity={equity}
+            realizedPnl={account.realizedPnl}
+            unrealizedPnl={unrealizedPnl}
+            positionCount={positions.length}
+          />
+          <PaperBalanceResetAction startingBalance={account.startingBalance} currency={account.currency} />
+        </>
       ) : (
         <div className="border-b border-black/8 px-2 py-3 text-[10px] leading-4 text-black/44">
           {auth.authenticated ? "Loading paper workspace…" : "Connect a wallet to open your paper workspace."}
@@ -71,6 +75,7 @@ export function ContextIntelligencePanel() {
           productId={workspace.activeProductId}
           price={workspace.activeMarketSnapshot?.price ?? activeMarket?.current_price ?? 0}
           availableBalance={account?.cashBalance ?? 0}
+          marketMaxLeverage={null}
           activePosition={activePosition}
           onConnectWallet={() => auth.login()}
         />

@@ -62,6 +62,8 @@ export function PaperTradeSetupPanel({
   const [direction, setDirection] = useState<PaperPositionDirection>("long");
   const [leverage, setLeverage] = useState(PAPER_LEVERAGE_DEFAULT);
   const [notional, setNotional] = useState("500");
+  const [strategyTag, setStrategyTag] = useState("");
+  const [userNote, setUserNote] = useState("");
   const [stopLoss, setStopLoss] = useState("");
   const [takeProfit, setTakeProfit] = useState("");
   const tradeMutation = usePaperTradeActions();
@@ -99,7 +101,7 @@ export function PaperTradeSetupPanel({
     if (tradeMutationError) {
       resetTradeMutation();
     }
-  }, [direction, leverage, notional, stopLoss, takeProfit, tradeMutationError, resetTradeMutation]);
+  }, [direction, leverage, notional, strategyTag, userNote, stopLoss, takeProfit, tradeMutationError, resetTradeMutation]);
 
   const canOpen = Boolean(
     productId &&
@@ -147,61 +149,101 @@ export function PaperTradeSetupPanel({
           <span className="tabular-nums">{formatPrice(price)}</span>
         </div>
       </div>
-      <div className="flex flex-1 flex-col gap-1.5 pb-2">
-        <PaperDirectionTabs value={direction} onChange={setDirection} />
-        <PaperLeverageSelector value={leverage} onChange={setLeverage} max={sliderMaxLeverage} />
-        {executionMaxLeverage < sliderMaxLeverage ? (
-          <p className="px-2 text-[9px] leading-4 text-black/38">
-            Paper execution currently supports up to {executionMaxLeverage}x.
-          </p>
-        ) : null}
-        <div className="px-2">
-          <PaperLevelInput label="Amount" value={notional} onChange={setNotional} suffix="USDT" />
-          <PaperBalanceSlider
-            availableBalance={availableBalance}
-            notional={parsedNotional}
-            onNotionalChange={setNotional}
-          />
-          <PaperTradeLevelField
-            label="Stop loss"
-            kind="stopLoss"
-            value={stopLoss}
-            onChange={setStopLoss}
-            direction={direction}
-            referencePrice={price}
-            invalid={hasTradeLevelInputError(stopLoss) || Boolean(levelValidationErrors.stopLoss)}
-            hint={levelValidationErrors.stopLoss}
-          />
-          <PaperTradeLevelField
-            label="Take profit"
-            kind="takeProfit"
-            value={takeProfit}
-            onChange={setTakeProfit}
-            direction={direction}
-            referencePrice={price}
-            invalid={hasTradeLevelInputError(takeProfit) || Boolean(levelValidationErrors.takeProfit)}
-            hint={levelValidationErrors.takeProfit}
-          />
-          <div className="pt-1.5">
-            <PaperTradePreview
-              variant="grid"
-              items={[
-                { label: "Margin", value: formatPrice(preview.marginUsed ?? undefined) },
-                { label: "Exposure", value: formatPrice(preview.effectiveNotional ?? undefined) },
-                { label: "Leverage", value: `${leverage}x` },
-                { label: "Est. qty", value: `${formatQuantity(preview.estimatedQuantity)} ${symbol}` },
-                { label: "Entry", value: formatPrice(preview.estimatedExecutionPrice ?? undefined) },
-                { label: "Approx. liq", value: formatPrice(preview.estimatedLiquidationPrice ?? undefined) },
-                { label: "Risk", value: preview.riskLevel ?? "--" },
-                { label: "Loss at SL", value: formatPrice(preview.estimatedRisk ?? undefined) },
-                { label: "Reward at TP", value: formatPrice(preview.estimatedReward ?? undefined) },
-                { label: "R / R", value: formatRatio(preview.riskRewardRatio) },
-              ]}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="flex flex-col gap-1.5 pb-2">
+          <PaperDirectionTabs value={direction} onChange={setDirection} />
+          <div className="flex flex-wrap gap-1 px-2" role="group" aria-label="Order type">
+            <span className="inline-flex h-7 items-center border border-[var(--line-strong)] bg-foreground/[0.06] px-2.5 text-[10px] font-medium text-foreground/88">
+              Market
+            </span>
+            <button
+              type="button"
+              disabled
+              title="Limit orders are not available in paper mode yet"
+              className="inline-flex h-7 cursor-not-allowed items-center border border-[var(--line)] px-2.5 text-[10px] font-medium text-foreground/35"
+            >
+              Limit
+            </button>
+            <button
+              type="button"
+              disabled
+              title="Conditional / stop orders are not available in paper mode yet"
+              className="inline-flex h-7 cursor-not-allowed items-center border border-[var(--line)] px-2.5 text-[10px] font-medium text-foreground/35"
+            >
+              Conditional
+            </button>
+          </div>
+          <PaperLeverageSelector value={leverage} onChange={setLeverage} max={sliderMaxLeverage} />
+          {executionMaxLeverage < sliderMaxLeverage ? (
+            <p className="px-2 text-[9px] leading-4 text-black/38">
+              Paper execution currently supports up to {executionMaxLeverage}x.
+            </p>
+          ) : null}
+          <div className="px-2">
+            <PaperLevelInput label="Amount" value={notional} onChange={setNotional} suffix="USDT" />
+            <PaperBalanceSlider
+              availableBalance={availableBalance}
+              notional={parsedNotional}
+              onNotionalChange={setNotional}
             />
+            <PaperTradeLevelField
+              label="Stop loss"
+              kind="stopLoss"
+              value={stopLoss}
+              onChange={setStopLoss}
+              direction={direction}
+              referencePrice={price}
+              invalid={hasTradeLevelInputError(stopLoss) || Boolean(levelValidationErrors.stopLoss)}
+              hint={levelValidationErrors.stopLoss}
+            />
+            <PaperTradeLevelField
+              label="Take profit"
+              kind="takeProfit"
+              value={takeProfit}
+              onChange={setTakeProfit}
+              direction={direction}
+              referencePrice={price}
+              invalid={hasTradeLevelInputError(takeProfit) || Boolean(levelValidationErrors.takeProfit)}
+              hint={levelValidationErrors.takeProfit}
+            />
+            <div className="pt-1.5">
+              <input
+                value={strategyTag}
+                onChange={(event) => setStrategyTag(event.target.value)}
+                placeholder="Strategy tag (e.g. breakout)"
+                className="h-8 w-full border border-black/10 px-2 text-[10px] text-black/82 outline-none"
+              />
+            </div>
+            <div className="pt-1.5">
+              <textarea
+                value={userNote}
+                onChange={(event) => setUserNote(event.target.value)}
+                placeholder="Trade note (why this setup)"
+                rows={2}
+                className="w-full resize-none border border-black/10 px-2 py-1.5 text-[10px] text-black/82 outline-none"
+              />
+            </div>
+            <div className="pt-1.5">
+              <PaperTradePreview
+                variant="grid"
+                items={[
+                  { label: "Margin", value: formatPrice(preview.marginUsed ?? undefined) },
+                  { label: "Exposure", value: formatPrice(preview.effectiveNotional ?? undefined) },
+                  { label: "Leverage", value: `${leverage}x` },
+                  { label: "Est. qty", value: `${formatQuantity(preview.estimatedQuantity)} ${symbol}` },
+                  { label: "Entry", value: formatPrice(preview.estimatedExecutionPrice ?? undefined) },
+                  { label: "Approx. liq", value: formatPrice(preview.estimatedLiquidationPrice ?? undefined) },
+                  { label: "Risk", value: preview.riskLevel ?? "--" },
+                  { label: "Loss at SL", value: formatPrice(preview.estimatedRisk ?? undefined) },
+                  { label: "Reward at TP", value: formatPrice(preview.estimatedReward ?? undefined) },
+                  { label: "R / R", value: formatRatio(preview.riskRewardRatio) },
+                ]}
+              />
+            </div>
           </div>
         </div>
       </div>
-      <div className="border-t border-black/8 bg-background px-2 py-2">
+      <div className="sticky bottom-0 z-[1] border-t border-black/8 bg-background px-2 py-2">
         <div className="flex items-center justify-between gap-3 pb-1.5 text-[10px] leading-4">
           <p className="min-w-0 flex-1 text-black/48">{statusMessage}</p>
           <span className="shrink-0 text-black/34">
@@ -222,6 +264,9 @@ export function PaperTradeSetupPanel({
               price,
               stopLoss: parsedStopLoss,
               takeProfit: parsedTakeProfit,
+              userNote: userNote.trim() || null,
+              strategyTag: strategyTag.trim() || null,
+              plannedRr: preview.riskRewardRatio,
               note: "Opened from context panel",
             })
           }

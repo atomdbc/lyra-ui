@@ -22,6 +22,35 @@ export function getPaperLeverageMarks(maxLeverage = PAPER_LEVERAGE_MAX) {
   return PAPER_LEVERAGE_MARKS.filter((mark) => mark <= maxLeverage);
 }
 
+export function resolvePaperExecutionLeverageCap({
+  workspaceMaxLeverage,
+  marketMaxLeverage,
+  sliderMaxLeverage = PAPER_LEVERAGE_MAX,
+}: {
+  workspaceMaxLeverage?: number | null;
+  marketMaxLeverage?: number | null;
+  sliderMaxLeverage?: number;
+}) {
+  const workspaceCap =
+    typeof workspaceMaxLeverage === "number" && Number.isFinite(workspaceMaxLeverage)
+      ? workspaceMaxLeverage
+      : sliderMaxLeverage;
+  const marketCap =
+    typeof marketMaxLeverage === "number" && Number.isFinite(marketMaxLeverage)
+      ? marketMaxLeverage
+      : sliderMaxLeverage;
+  const rawCap = Math.min(workspaceCap, marketCap, sliderMaxLeverage);
+
+  if (!Number.isFinite(rawCap)) {
+    return PAPER_LEVERAGE_DEFAULT;
+  }
+  if (rawCap < PAPER_LEVERAGE_MIN) {
+    return PAPER_LEVERAGE_MIN;
+  }
+
+  return Math.floor(rawCap);
+}
+
 export function getEffectivePositionNotional(marginUsed: number, leverage: number) {
   if (marginUsed <= 0 || leverage <= 0) {
     return 0;

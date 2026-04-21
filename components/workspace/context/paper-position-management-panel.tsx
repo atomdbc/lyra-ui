@@ -24,6 +24,8 @@ import { usePaperTradeActions } from "@/hooks/use-paper-trade-actions";
 
 const SECONDARY_ACTION_CLASS =
   "inline-flex h-8 min-w-[104px] items-center justify-center whitespace-nowrap border border-black/10 px-3 text-[10px] font-medium text-black/82 transition hover:bg-black/[0.02] disabled:cursor-not-allowed disabled:text-black/28";
+const PRIMARY_ACTION_CLASS =
+  "inline-flex h-8 min-w-[104px] items-center justify-center whitespace-nowrap border border-black/10 bg-black px-3 text-[10px] font-medium text-white transition hover:bg-black/88 disabled:cursor-not-allowed disabled:border-black/8 disabled:bg-black/20 disabled:text-white/60";
 
 function parseNotional(value: string) {
   const parsed = Number(value.replace(/,/g, ""));
@@ -52,6 +54,8 @@ export function PaperPositionManagementPanel({
 }) {
   const [activeMode, setActiveMode] = useState<"manage" | "add" | "exit">("manage");
   const [notional, setNotional] = useState("500");
+  const [strategyTag, setStrategyTag] = useState("");
+  const [userNote, setUserNote] = useState("");
   const [stopLoss, setStopLoss] = useState(activePosition.stopLoss ? String(activePosition.stopLoss) : "");
   const [takeProfit, setTakeProfit] = useState(activePosition.takeProfit ? String(activePosition.takeProfit) : "");
   const tradeMutation = usePaperTradeActions();
@@ -103,6 +107,13 @@ export function PaperPositionManagementPanel({
   const levelsDirty =
     (parsedStopLoss ?? null) !== (activePosition.stopLoss ?? null) ||
     (parsedTakeProfit ?? null) !== (activePosition.takeProfit ?? null);
+  const canSaveSetup = !levelsMutation.isPending && levelsDirty && !hasLevelError && !levelsValidationMessage;
+  const canAdd =
+    !tradeMutation.isPending &&
+    parsedNotional > 0 &&
+    price > 0 &&
+    !hasLevelError &&
+    !addValidationMessage;
 
   useEffect(() => {
     if (tradeMutationError) {
@@ -114,6 +125,8 @@ export function PaperPositionManagementPanel({
   }, [
     levelsMutationError,
     notional,
+    strategyTag,
+    userNote,
     resetLevelsMutation,
     resetTradeMutation,
     stopLoss,
@@ -155,7 +168,7 @@ export function PaperPositionManagementPanel({
           <span className="tabular-nums">{formatQuantity(activePosition.quantity)} · {formatPrice(price)}</span>
         </div>
       </div>
-      <div className="flex flex-1 flex-col px-2 pb-2">
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
         <PaperPositionSummary
           direction={activePosition.direction}
           leverage={activePosition.leverage}
@@ -193,23 +206,6 @@ export function PaperPositionManagementPanel({
               invalid={hasTradeLevelInputError(takeProfit) || Boolean(levelValidationErrors.takeProfit)}
               hint={levelValidationErrors.takeProfit}
             />
-            <div className="mt-1.5 flex justify-end">
-              <button
-                type="button"
-                disabled={levelsMutation.isPending || !levelsDirty || hasLevelError || Boolean(levelsValidationMessage)}
-                onClick={() =>
-                  levelsMutation.mutate({
-                    productId,
-                    stopLoss: parsedStopLoss,
-                    takeProfit: parsedTakeProfit,
-                    note: "Trade setup updated from context panel",
-                  })
-                }
-                className={SECONDARY_ACTION_CLASS}
-              >
-                Save setup
-              </button>
-            </div>
           </div>
         ) : null}
         {activeMode === "add" ? (
@@ -219,32 +215,15 @@ export function PaperPositionManagementPanel({
             availableBalance={availableBalance}
             notional={notional}
             onNotionalChange={setNotional}
+            strategyTag={strategyTag}
+            onStrategyTagChange={setStrategyTag}
+            userNote={userNote}
+            onUserNoteChange={setUserNote}
             preview={addPreview}
-            disabled={
-              tradeMutation.isPending ||
-              parsedNotional <= 0 ||
-              price <= 0 ||
-              hasLevelError ||
-              Boolean(addValidationMessage)
-            }
-            onSubmit={() =>
-              tradeMutation.mutate({
-                action: "increase",
-                direction: activePosition.direction,
-                leverage: activePosition.leverage,
-                productId,
-                symbol,
-                notional: parsedNotional,
-                price,
-                stopLoss: parsedStopLoss,
-                takeProfit: parsedTakeProfit,
-                note: "Increased from context panel",
-              })
-            }
           />
         ) : null}
       </div>
-      <div className="border-t border-black/8 bg-background px-2 py-2">
+      <div className="sticky bottom-0 z-[1] border-t border-black/8 bg-background px-2 py-2">
         {statusMessage || addValidationMessage ? (
           <p className="pb-1.5 text-[10px] leading-4 text-black/48">{statusMessage ?? addValidationMessage}</p>
         ) : null}
@@ -269,6 +248,50 @@ export function PaperPositionManagementPanel({
               })
             }
           />
+        ) : activeMode === "manage" ? (
+          <div className="flex h-8 items-center justify-end">
+            <button
+              type="button"
+              disabled={!canSaveSetup}
+              onClick={() =>
+                levelsMutation.mutate({
+                  productId,
+                  stopLoss: parsedStopLoss,
+                  takeProfit: parsedTakeProfit,
+                  note: "Trade setup updated from context panel",
+                })
+              }
+              className={SECONDARY_ACTION_CLASS}
+            >
+              Save setup
+            </button>
+          </div>
+        ) : activeMode === "add" ? (
+          <div className="flex h-8 items-center justify-end">
+            <button
+              type="button"
+              disabled={!canAdd}
+              onClick={() =>
+                tradeMutation.mutate({
+                  action: "increase",
+                  direction: activePosition.direction,
+                  leverage: activePosition.leverage,
+                  productId,
+                  symbol,
+                  notional: parsedNotional,
+                  price,
+                  stopLoss: parsedStopLoss,
+                  takeProfit: parsedTakeProfit,
+                  userNote: userNote.trim() || null,
+                  strategyTag: strategyTag.trim() || null,
+                  note: "Increased from context panel",
+                })
+              }
+              className={PRIMARY_ACTION_CLASS}
+            >
+              Add to position
+            </button>
+          </div>
         ) : (
           <div className="flex h-8 items-center justify-between text-[10px] text-black/42">
             <span>{activeMode === "manage" ? "Update levels, then save." : "Preview the added exposure before confirming."}</span>

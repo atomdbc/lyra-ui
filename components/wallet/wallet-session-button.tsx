@@ -1,10 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { WalletSessionMenu } from "@/components/wallet/wallet-session-menu";
 import { usePrivyStatus } from "@/providers/privy-provider";
 import { useUIStore } from "@/stores/ui-store";
+
+function readLinkedWalletAddress(user: ReturnType<typeof usePrivy>["user"]) {
+  const account = user?.linkedAccounts.find((item) => item.type === "wallet" && "address" in item);
+  return account && "address" in account ? account.address : null;
+}
 
 function WalletSessionButtonUnavailable() {
   return (
@@ -22,7 +28,8 @@ function WalletSessionButtonUnavailable() {
 }
 
 function PrivyWalletSessionButton() {
-  const { ready, authenticated, login, linkWallet, logout } = usePrivy();
+  const router = useRouter();
+  const { ready, authenticated, login, linkWallet, logout, user } = usePrivy();
   const { wallets } = useWallets();
   const walletAction = useUIStore((state) => state.walletAction);
   const walletActionRequestId = useUIStore((state) => state.walletActionRequestId);
@@ -30,14 +37,15 @@ function PrivyWalletSessionButton() {
   const [menuOpen, setMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const primaryWallet = wallets[0];
+  const primaryWalletAddress = wallets[0]?.address ?? readLinkedWalletAddress(user);
+  const hasWalletConnection = Boolean(primaryWalletAddress) || authenticated;
   const buttonLabel = !ready
     ? "Connect wallet"
-    : !authenticated
+    : !hasWalletConnection
       ? "Connect wallet"
-      : primaryWallet?.address
-        ? `${primaryWallet.address.slice(0, 6)}…${primaryWallet.address.slice(-4)}`
-        : "Wallet";
+      : primaryWalletAddress
+        ? `${primaryWalletAddress.slice(0, 6)}…${primaryWalletAddress.slice(-4)}`
+        : "Disconnect wallet";
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -83,7 +91,7 @@ function PrivyWalletSessionButton() {
         type="button"
         onClick={() => {
           if (!ready) return;
-          if (!authenticated) {
+          if (!hasWalletConnection) {
             login();
             return;
           }
@@ -97,8 +105,13 @@ function PrivyWalletSessionButton() {
         open={menuOpen}
         anchorRef={containerRef}
         menuRef={menuRef}
-        walletAddress={primaryWallet?.address}
+        connected={hasWalletConnection}
+        walletAddress={primaryWalletAddress}
         walletCount={wallets.length}
+        onOpenProfile={() => {
+          router.push("/profile");
+          setMenuOpen(false);
+        }}
         onConnectWallet={() => {
           linkWallet({ walletChainType: "ethereum-only" });
           setMenuOpen(false);

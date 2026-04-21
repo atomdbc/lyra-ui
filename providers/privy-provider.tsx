@@ -2,6 +2,7 @@
 
 import { createContext, useContext } from "react";
 import { PrivyProvider, type PrivyClientConfig } from "@privy-io/react-auth";
+import { useThemeMode } from "@/providers/theme-provider";
 
 type PrivyStatus = {
   appIdConfigured: boolean;
@@ -22,13 +23,12 @@ const statusFallback: PrivyStatus = {
 
 const PrivyStatusContext = createContext<PrivyStatus>(statusFallback);
 
-const privyConfig = {
+const basePrivyConfig = {
   appearance: {
-    theme: "light" as const,
     accentColor: "#0a0a0a" as const,
     landingHeader: "Connect wallet",
     loginMessage: "Use Google, email, or your wallet to enter Lyra.",
-    showWalletLoginFirst: true,
+    showWalletLoginFirst: false,
     walletChainType: "ethereum-only" as const,
     walletList: [
       "detected_ethereum_wallets",
@@ -40,7 +40,7 @@ const privyConfig = {
       "wallet_connect",
     ] as const,
   },
-  loginMethods: ["wallet", "google", "email"] as const,
+  loginMethods: ["google", "email", "wallet"] as const,
   embeddedWallets: {
     ethereum: {
       createOnLogin: "users-without-wallets" as const,
@@ -58,10 +58,19 @@ export function PrivyAppProvider({
   serverAuthReady,
   children,
 }: PrivyAppProviderProps) {
+  const { resolvedTheme } = useThemeMode();
   const status = {
     appIdConfigured: Boolean(appId),
     serverAuthReady,
   };
+
+  const privyConfig = {
+    ...basePrivyConfig,
+    appearance: {
+      ...basePrivyConfig.appearance,
+      theme: resolvedTheme,
+    },
+  } satisfies PrivyClientConfig;
 
   if (!appId) {
     return <PrivyStatusContext.Provider value={status}>{children}</PrivyStatusContext.Provider>;

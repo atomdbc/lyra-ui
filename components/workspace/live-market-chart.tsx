@@ -18,11 +18,13 @@ import {
   toVolumeData,
   UP_COLOR,
 } from "@/components/workspace/live-market-chart-helpers";
+import { getLiveChartTheme } from "@/components/workspace/live-market-chart-theme";
 import {
   PositionLineRefs,
   syncPositionPriceLines,
 } from "@/components/workspace/position-price-lines";
 import { useMarketCandles } from "@/hooks/use-market-candles";
+import { useThemeMode } from "@/providers/theme-provider";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 
 type LiveMarketChartProps = {
@@ -34,6 +36,7 @@ type LiveMarketChartProps = {
 
 export function LiveMarketChart({ productId, timeframe, snapshot, activePosition }: LiveMarketChartProps) {
   const setFocusedRegion = useWorkspaceStore((state) => state.setFocusedRegion);
+  const { resolvedTheme } = useThemeMode();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -51,28 +54,29 @@ export function LiveMarketChart({ productId, timeframe, snapshot, activePosition
     if (!containerRef.current) {
       return;
     }
+    const colors = getLiveChartTheme(resolvedTheme);
 
     const chart = createChart(containerRef.current, {
       autoSize: true,
       layout: {
-        background: { color: "#f5f5f3", type: ColorType.Solid },
-        textColor: "rgba(10,10,10,0.58)",
+        background: { color: colors.background, type: ColorType.Solid },
+        textColor: colors.text,
         fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
       },
       grid: {
-        vertLines: { color: "rgba(10,10,10,0.035)" },
-        horzLines: { color: "rgba(10,10,10,0.035)" },
+        vertLines: { color: colors.grid },
+        horzLines: { color: colors.grid },
       },
       crosshair: {
-        vertLine: { color: "rgba(10,10,10,0.12)", width: 1 },
-        horzLine: { color: "rgba(10,10,10,0.12)", width: 1 },
+        vertLine: { color: colors.crosshair, width: 1 },
+        horzLine: { color: colors.crosshair, width: 1 },
       },
       timeScale: {
-        borderColor: "rgba(10,10,10,0.08)",
+        borderColor: colors.border,
         timeVisible: timeframe !== "1d",
       },
       rightPriceScale: {
-        borderColor: "rgba(10,10,10,0.08)",
+        borderColor: colors.border,
       },
       handleScroll: true,
       handleScale: true,
@@ -111,7 +115,7 @@ export function LiveMarketChart({ productId, timeframe, snapshot, activePosition
       volumeSeriesRef.current = null;
       positionLinesRef.current = { entry: null, stop: null, takeProfit: null, liquidation: null };
     };
-  }, [timeframe]);
+  }, [resolvedTheme, timeframe]);
 
   useEffect(() => {
     if (!data || !candleSeriesRef.current || !volumeSeriesRef.current) {

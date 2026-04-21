@@ -59,7 +59,7 @@ type WorkspaceStore = {
   resetLayout: () => void;
 };
 
-export type BottomPanelTab = "positions" | "trades" | "activity" | "ai" | "terminal";
+export type BottomPanelTab = "positions" | "trades" | "activity" | "leaderboard" | "ai" | "terminal";
 
 type PersistedWorkspaceState = Pick<
   WorkspaceStore,

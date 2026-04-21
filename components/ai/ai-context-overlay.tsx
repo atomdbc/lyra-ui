@@ -91,7 +91,6 @@ export function AiContextOverlay() {
           className="block w-full cursor-pointer text-left"
         >
           <AiSignalCard
-            compact
             content={insight.content}
             prompt={insight.source === "trigger" ? "New market signal" : "Live read"}
             signal={insight.signal}

@@ -5,6 +5,7 @@ import { CommandPalette } from "@/components/shell/command-palette";
 import { WorkspaceAiFloatingPanel } from "@/components/workspace/context/workspace-ai-floating-panel";
 import { ContextIntelligencePanel } from "@/components/workspace/context/context-intelligence-panel";
 import { AiTradeEntryModal } from "@/components/workspace/context/ai-trade-entry-modal";
+import { TerminalOnboardingModal } from "@/components/workspace/onboarding/terminal-onboarding-modal";
 import { ActiveMarketSync } from "@/components/workspace/active-market-sync";
 import { MarketBootstrap } from "@/components/workspace/market-bootstrap";
 import { WorkspaceCenter } from "@/components/workspace/workspace-center";
@@ -48,6 +49,7 @@ export function WorkspaceShell() {
       <CommandPalette />
       <WorkspaceAiFloatingPanel />
       <AiTradeEntryModal />
+      <TerminalOnboardingModal />
     </main>
   );
 }

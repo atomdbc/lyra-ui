@@ -1,9 +1,11 @@
 import {
+  PaperAccount,
   PaperPositionLevelsMutationResult,
   PaperPositionLevelsRequest,
   PaperTradeMutationResult,
   PaperTradeRequest,
   PaperWorkspaceContext,
+  WorkspaceActivityItem,
 } from "@/core/paper/types";
 
 type WorkspaceRequestIdentity = {
@@ -71,4 +73,14 @@ export function dismissPaperBalanceBanner(accessToken: string) {
   return requestJson<{ ok: true }>("/api/workspace/onboarding/paper-balance", accessToken, {
     method: "PATCH",
   });
+}
+
+export function topUpPaperBalanceRequest(accessToken: string) {
+  return requestJson<{ account: PaperAccount; activity: WorkspaceActivityItem; refilledAmount: number }>(
+    "/api/paper/account/top-up",
+    accessToken,
+    {
+      method: "POST",
+    }
+  );
 }

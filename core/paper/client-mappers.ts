@@ -38,7 +38,12 @@ export function mapWorkspaceIdentityRow(row: Record<string, unknown>): Workspace
     walletAddress: (row.wallet_address as string | null) ?? null,
     email: (row.email as string | null) ?? null,
     displayName: (row.display_name as string | null) ?? null,
+    username: (row.username as string | null) ?? null,
+    avatarUrl: (row.avatar_url as string | null) ?? null,
+    profileVisibility: row.profile_visibility === "private" ? "private" : "public",
+    publicTradeFeedOptIn: row.public_trade_feed_opt_in !== false,
     hasSeenPaperBalanceBanner: Boolean(row.has_seen_paper_balance_banner),
+    hasSeenTerminalOnboarding: Boolean(row.has_seen_terminal_onboarding),
     aiOpportunitySettings: {
       enabled: row.ai_opportunity_alerts_enabled !== false,
       minimumConfidence: Math.round(toNumber(row.ai_opportunity_min_confidence) || 82),
@@ -90,6 +95,9 @@ export function mapPaperTradeRow(row: Record<string, unknown>): PaperTrade {
     notional: toNumber(row.notional),
     realizedPnl: toNumber(row.realized_pnl),
     note: (row.note as string | null) ?? null,
+    userNote: (row.user_note as string | null) ?? null,
+    strategyTag: (row.strategy_tag as string | null) ?? null,
+    plannedRr: row.planned_rr == null ? null : toNumber(row.planned_rr),
     executedAt: String(row.executed_at),
   };
 }

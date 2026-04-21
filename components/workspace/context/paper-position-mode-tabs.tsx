@@ -19,8 +19,10 @@ export function PaperPositionModeTabs({
           type="button"
           onClick={() => onChange(item.id)}
           className={[
-            "h-7 bg-background px-2 text-[10px] font-medium uppercase tracking-[0.12em] transition",
-            value === item.id ? "bg-black text-white" : "text-black/34 hover:text-black/72",
+            "h-8 bg-background px-2 text-[10px] font-medium uppercase tracking-[0.12em] transition",
+            value === item.id
+              ? "bg-black text-white"
+              : "text-black/58 hover:bg-black/[0.02] hover:text-black/86",
           ].join(" ")}
         >
           {item.label}

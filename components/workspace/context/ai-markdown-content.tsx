@@ -75,7 +75,11 @@ function renderInline(content: string) {
   const parts = content.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
   return parts.map((part, index) => {
     if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={`${part}-${index}`} className="font-medium text-black/88">{part.slice(2, -2)}</strong>;
+      return (
+        <strong key={`${part}-${index}`} className="font-medium text-foreground/90">
+          {part.slice(2, -2)}
+        </strong>
+      );
     }
     return <Fragment key={`${part}-${index}`}>{part}</Fragment>;
   });
@@ -83,23 +87,33 @@ function renderInline(content: string) {
 
 function renderListItem(content: string, index: number, ordered: boolean) {
   return (
-    <li key={`${content}-${index}`} className="flex items-start gap-2 text-[11px] leading-[18px] text-black/72">
-      <span className="mt-[2px] w-4 shrink-0 text-black/40">{ordered ? `${index + 1}.` : "•"}</span>
+    <li
+      key={`${content}-${index}`}
+      className="flex items-start gap-2 text-[12px] leading-[1.5] text-foreground/75"
+    >
+      <span className="mt-[2px] w-4 shrink-0 text-foreground/45">{ordered ? `${index + 1}.` : "•"}</span>
       <span>{renderInline(content)}</span>
     </li>
   );
 }
 
-export function AiMarkdownContent({ content }: { content: string }) {
+export function AiMarkdownContent({
+  content,
+  className = "space-y-2 text-[12px] leading-[1.55] text-foreground/78",
+}: {
+  content: string;
+  className?: string;
+}) {
   const blocks = parseBlocks(content.trim());
 
   return (
-    <div className="space-y-2 text-[11px] leading-[18px] text-black/74">
+    <div className={className}>
       {blocks.map((block, index) => {
         if (block.type === "heading") {
-          const className = block.level === 2
-            ? "text-[11px] font-medium uppercase tracking-[0.12em] text-black/44"
-            : "text-[11px] font-medium text-black/82";
+          const className =
+            block.level === 2
+              ? "text-[11px] font-medium uppercase tracking-[0.12em] text-foreground/45"
+              : "text-[12px] font-medium text-foreground/88";
           return <p key={`${block.content}-${index}`} className={className}>{block.content}</p>;
         }
 
@@ -112,7 +126,7 @@ export function AiMarkdownContent({ content }: { content: string }) {
         }
 
         return (
-          <p key={`${block.content}-${index}`} className="text-[11px] leading-[18px] text-black/74">
+          <p key={`${block.content}-${index}`} className="text-[12px] leading-[1.55] text-foreground/78">
             {renderInline(block.content) as ReactNode}
           </p>
         );

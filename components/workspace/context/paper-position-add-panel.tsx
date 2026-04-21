@@ -18,15 +18,21 @@ export function PaperPositionAddPanel({
   availableBalance,
   notional,
   onNotionalChange,
+  strategyTag,
+  onStrategyTagChange,
+  userNote,
+  onUserNoteChange,
   preview,
-  disabled,
-  onSubmit,
 }: {
   symbol: string;
   leverage: number;
   availableBalance: number;
   notional: string;
   onNotionalChange: (value: string) => void;
+  strategyTag: string;
+  onStrategyTagChange: (value: string) => void;
+  userNote: string;
+  onUserNoteChange: (value: string) => void;
   preview: {
     estimatedAdditionalMargin: number | null;
     estimatedAdditionalNotional: number | null;
@@ -37,16 +43,31 @@ export function PaperPositionAddPanel({
     estimatedAverageEntry: number | null;
     estimatedLiquidationPrice: number | null;
   };
-  disabled: boolean;
-  onSubmit: () => void;
 }) {
+  const parsedNotional = Number(notional.replace(/,/g, "")) || 0;
+
   return (
-    <div className="pt-2">
-      <PaperLevelInput label="Add margin" value={notional} onChange={onNotionalChange} suffix="USDT" />
+    <div className="space-y-2 pt-2">
+      <div className="border border-black/8 bg-background p-2">
+        <PaperLevelInput label="Add margin" value={notional} onChange={onNotionalChange} suffix="USDT" />
+      </div>
       <PaperBalanceSlider
         availableBalance={availableBalance}
-        notional={Number(notional.replace(/,/g, "")) || 0}
+        notional={parsedNotional}
         onNotionalChange={onNotionalChange}
+      />
+      <input
+        value={strategyTag}
+        onChange={(event) => onStrategyTagChange(event.target.value)}
+        placeholder="Strategy tag"
+        className="h-8 w-full border border-black/10 px-2 text-[10px] text-black/82 outline-none"
+      />
+      <textarea
+        value={userNote}
+        onChange={(event) => onUserNoteChange(event.target.value)}
+        placeholder="Trade note"
+        rows={2}
+        className="w-full resize-none border border-black/10 px-2 py-1.5 text-[10px] text-black/82 outline-none"
       />
       <PaperTradePreview
         variant="grid"
@@ -55,23 +76,13 @@ export function PaperPositionAddPanel({
           { label: "Leverage", value: `${leverage}x` },
           { label: "Estimated add", value: `${formatQuantity(preview.estimatedAdditionalQuantity)} ${symbol}` },
           { label: "Added exposure", value: formatPrice(preview.estimatedAdditionalNotional ?? undefined) },
-          { label: "New margin", value: formatPrice(preview.estimatedNewMarginUsed ?? undefined) },
-          { label: "New qty", value: `${formatQuantity(preview.estimatedNewQuantity)} ${symbol}` },
-          { label: "New exposure", value: formatPrice(preview.estimatedNewNotional ?? undefined) },
           { label: "New avg entry", value: formatPrice(preview.estimatedAverageEntry ?? undefined) },
+          { label: "New qty", value: `${formatQuantity(preview.estimatedNewQuantity)} ${symbol}` },
+          { label: "New margin", value: formatPrice(preview.estimatedNewMarginUsed ?? undefined) },
+          { label: "New exposure", value: formatPrice(preview.estimatedNewNotional ?? undefined) },
           { label: "Approx. liq", value: formatPrice(preview.estimatedLiquidationPrice ?? undefined) },
         ]}
       />
-      <div className="mt-1.5">
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={onSubmit}
-          className="flex h-8 w-full items-center justify-center whitespace-nowrap border border-black/10 bg-black px-3 text-[10px] font-medium text-white transition hover:bg-black/88 disabled:cursor-not-allowed disabled:border-black/8 disabled:bg-black/20 disabled:text-white/60"
-        >
-          Add to position
-        </button>
-      </div>
     </div>
   );
 }

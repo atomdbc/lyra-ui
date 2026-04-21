@@ -6,8 +6,9 @@ import { getPaperTradeCapabilities } from "@/core/server/services/paper-trade-ca
 import { executePaperTrade } from "@/core/server/services/paper-trade-service";
 
 function normalizeTradeErrorMessage(message: string) {
-  if (message.toLowerCase().includes("one of 1x, 2x, or 3x")) {
-    return "Leverage is currently available up to 3x in this workspace.";
+  const lower = message.toLowerCase();
+  if (lower.includes("one of 1x, 2x, or 3x") || lower.includes("leverage") && lower.includes("3x")) {
+    return "Leverage rejected by the paper engine. Try a lower value or check PAPER_MAX_LEVERAGE / DB limits.";
   }
 
   return message;
@@ -35,6 +36,15 @@ async function validateRequest(input: Partial<PaperTradeRequest>) {
   }
   if ("takeProfit" in input && input.takeProfit != null && input.takeProfit <= 0) {
     throw new Error("Take profit must be greater than zero.");
+  }
+  if ("userNote" in input && input.userNote != null && String(input.userNote).length > 280) {
+    throw new Error("Trade note must be 280 characters or fewer.");
+  }
+  if ("strategyTag" in input && input.strategyTag != null && String(input.strategyTag).length > 48) {
+    throw new Error("Strategy tag must be 48 characters or fewer.");
+  }
+  if ("plannedRr" in input && input.plannedRr != null && input.plannedRr <= 0) {
+    throw new Error("Planned RR must be greater than zero.");
   }
 
   if (input.action === "close") {

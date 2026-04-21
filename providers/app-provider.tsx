@@ -2,6 +2,7 @@
 
 import { PrivyAppProvider } from "@/providers/privy-provider";
 import { QueryProvider } from "@/providers/query-provider";
+import { ThemeProvider } from "@/providers/theme-provider";
 
 export function AppProvider({
   privyAppId,
@@ -16,13 +17,15 @@ export function AppProvider({
 }>) {
   return (
     <QueryProvider>
-      <PrivyAppProvider
-        appId={privyAppId}
-        clientId={privyClientId}
-        serverAuthReady={privyServerAuthReady}
-      >
-        {children}
-      </PrivyAppProvider>
+      <ThemeProvider>
+        <PrivyAppProvider
+          appId={privyAppId}
+          clientId={privyClientId}
+          serverAuthReady={privyServerAuthReady}
+        >
+          {children}
+        </PrivyAppProvider>
+      </ThemeProvider>
     </QueryProvider>
   );
 }

@@ -2,6 +2,7 @@ import "server-only";
 
 import { PaperWorkspaceContext } from "@/core/paper/types";
 import { fetchLyraRecordActivity } from "@/core/server/records/lyra-record-adapter";
+import { reconcilePaperPositionLevelsForUser } from "@/core/server/services/paper-position-auto-close-service";
 import { getPaperTradeCapabilities } from "@/core/server/services/paper-trade-capabilities";
 import {
   mapPaperAccount,
@@ -57,10 +58,27 @@ async function ensurePaperAccount(workspaceUserId: string) {
   return mapPaperAccount(data);
 }
 
+async function getPaperAccount(workspaceUserId: string) {
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("paper_accounts")
+    .select()
+    .eq("workspace_user_id", workspaceUserId)
+    .maybeSingle();
+
+  if (error || !data) {
+    throw new Error(`Unable to load paper account: ${error?.message ?? "missing paper account"}`);
+  }
+
+  return mapPaperAccount(data);
+}
+
 export async function getPaperWorkspaceContext(identity: WorkspaceIdentitySeedInput): Promise<PaperWorkspaceContext> {
   const supabase = getSupabaseAdminClient();
   const workspaceUser = await ensureWorkspaceUser(identity);
-  const account = await ensurePaperAccount(workspaceUser.id);
+  await ensurePaperAccount(workspaceUser.id);
+  await reconcilePaperPositionLevelsForUser(identity.privyUserId).catch(() => null);
+  const account = await getPaperAccount(workspaceUser.id);
   const capabilities = await getPaperTradeCapabilities();
 
   const [positionsResult, tradesResult, activityResult, recordActivity] = await Promise.all([

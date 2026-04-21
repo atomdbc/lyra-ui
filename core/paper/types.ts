@@ -4,7 +4,12 @@ export type WorkspaceIdentity = {
   walletAddress: string | null;
   email: string | null;
   displayName: string | null;
+  username: string | null;
+  avatarUrl: string | null;
+  profileVisibility: "public" | "private";
+  publicTradeFeedOptIn: boolean;
   hasSeenPaperBalanceBanner: boolean;
+  hasSeenTerminalOnboarding: boolean;
   aiOpportunitySettings: AiOpportunitySettings;
 };
 
@@ -55,6 +60,9 @@ export type PaperTrade = {
   notional: number;
   realizedPnl: number;
   note: string | null;
+  userNote: string | null;
+  strategyTag: string | null;
+  plannedRr: number | null;
   executedAt: string;
 };
 
@@ -91,6 +99,9 @@ type PaperTradeBaseRequest = {
   symbol: string;
   price: number;
   note?: string;
+  userNote?: string | null;
+  strategyTag?: string | null;
+  plannedRr?: number | null;
   direction?: PaperPositionDirection;
   leverage?: number;
   stopLoss?: number | null;
@@ -134,4 +145,51 @@ export type PaperPositionLevelsRequest = {
 export type PaperPositionLevelsMutationResult = {
   position: PaperPosition;
   activity: WorkspaceActivityItem;
+};
+
+export type ShareCardTheme = "mono" | "dark" | "grid";
+export type ShareCardType = "session_pnl" | "trade_result";
+
+export type PublicTradeFeedItem = {
+  id: string;
+  username: string;
+  symbol: string;
+  action: PaperTradeAction;
+  realizedPnl: number;
+  price: number;
+  executedAt: string;
+};
+
+export type PublicLiveRead = {
+  generatedAt: string;
+  productId: string;
+  symbol: string;
+  bias: "long" | "short" | "neutral";
+  verdict: "trade" | "watch" | "skip";
+  confidence: number;
+  summary: string;
+};
+
+export type PublicSocialProof = {
+  activeTradersToday: number;
+  recentTrades: PublicTradeFeedItem[];
+};
+
+export type PublicProfileSummary = {
+  username: string;
+  avatarUrl: string | null;
+  displayName: string | null;
+  joinedAt: string;
+  totalRealizedPnl: number;
+  winRate: number | null;
+  totalTrades: number;
+  pnlVisible: boolean;
+};
+
+export type WeeklyLeaderboardEntry = {
+  rank: number;
+  username: string;
+  avatarUrl: string | null;
+  weeklyRealizedPnl: number;
+  tradeCount: number;
 };
