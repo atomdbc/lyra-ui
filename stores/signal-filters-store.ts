@@ -10,6 +10,15 @@ export type SignalAction =
   | "migrate"
   | "unknown";
 
+/** High-level rail — narrows the card feed without opening the filter popover. */
+export type SignalFeedLane =
+  | "all"
+  | "launches"
+  | "whales"
+  | "early_cluster"
+  | "surge"
+  | "graduate";
+
 type SignalFiltersState = {
   rules: SignalRule[]; // empty = all
   actions: SignalAction[]; // empty = all
@@ -17,6 +26,7 @@ type SignalFiltersState = {
   minUsd: number; // 0 = no min
   query: string;
   paused: boolean;
+  feedLane: SignalFeedLane;
   setRules: (next: SignalRule[]) => void;
   toggleRule: (rule: SignalRule) => void;
   setActions: (next: SignalAction[]) => void;
@@ -26,6 +36,7 @@ type SignalFiltersState = {
   setMinUsd: (value: number) => void;
   setQuery: (value: string) => void;
   togglePaused: () => void;
+  setFeedLane: (lane: SignalFeedLane) => void;
   reset: () => void;
 };
 
@@ -42,6 +53,7 @@ export const useSignalFiltersStore = create<SignalFiltersState>()(
       minUsd: 0,
       query: "",
       paused: false,
+      feedLane: "all",
       setRules: (rules) => set({ rules }),
       toggleRule: (rule) => set((state) => ({ rules: toggleIn(state.rules, rule) })),
       setActions: (actions) => set({ actions }),
@@ -51,10 +63,19 @@ export const useSignalFiltersStore = create<SignalFiltersState>()(
       setMinUsd: (value) => set({ minUsd: Math.max(0, Math.floor(value)) }),
       setQuery: (value) => set({ query: value }),
       togglePaused: () => set((state) => ({ paused: !state.paused })),
+      setFeedLane: (feedLane) => set({ feedLane }),
       reset: () =>
-        set({ rules: [], actions: [], sources: [], minUsd: 0, query: "", paused: false }),
+        set({
+          rules: [],
+          actions: [],
+          sources: [],
+          minUsd: 0,
+          query: "",
+          paused: false,
+          feedLane: "all",
+        }),
     }),
-    { name: "lyra-signal-filters", version: 1 }
+    { name: "lyra-signal-filters", version: 2 }
   )
 );
 
@@ -66,6 +87,34 @@ export function countActiveFilters(filters: SignalFiltersState): number {
   if (filters.minUsd > 0) n += 1;
   if (filters.query.trim()) n += 1;
   return n;
+}
+
+export function applyFeedLane(
+  alerts: SignalAlert[],
+  lane: SignalFeedLane,
+): SignalAlert[] {
+  if (lane === "all") return alerts;
+  if (lane === "launches") {
+    return alerts.filter((a) => a.event.action === "create");
+  }
+  if (lane === "whales") {
+    return alerts.filter((a) => a.primaryRule === "large_wallet_usd");
+  }
+  if (lane === "early_cluster") {
+    return alerts.filter(
+      (a) => a.primaryRule === "early_buy_index" && a.event.action === "buy",
+    );
+  }
+  if (lane === "surge") {
+    return alerts.filter((a) => a.primaryRule === "volume_acceleration");
+  }
+  if (lane === "graduate") {
+    return alerts.filter(
+      (a) =>
+        a.primaryRule === "bonding_migration" || a.event.action === "migrate",
+    );
+  }
+  return alerts;
 }
 
 export function applyFilters(

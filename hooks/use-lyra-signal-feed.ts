@@ -13,6 +13,8 @@ import {
 
 const FEED_PATH = "/feed";
 const DEFAULT_SIGNAL_URL = "wss://lyra-signal-production.up.railway.app";
+/** Coalesce rapid WS frames so React + IndexedDB do not thrash on hot markets. */
+const FLUSH_MS = 72;
 
 function mergeById(
   incoming: SignalAlert[],
@@ -74,6 +76,10 @@ export function useLyraSignalFeed(options: UseLyraSignalFeedOptions = {}) {
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const stoppedRef = useRef(false);
+  const pendingRef = useRef<SignalAlert[]>([]);
+  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bufferSizeRef = useRef(bufferSize);
+  bufferSizeRef.current = bufferSize;
 
   // Hydrate from IndexedDB cache once — gives the tape instant history.
   useEffect(() => {
@@ -92,6 +98,21 @@ export function useLyraSignalFeed(options: UseLyraSignalFeedOptions = {}) {
       cancelled = true;
     };
   }, [bufferSize]);
+
+  const flushPending = () => {
+    flushTimerRef.current = null;
+    const batch = pendingRef.current;
+    pendingRef.current = [];
+    if (!batch.length) return;
+    const cap = bufferSizeRef.current;
+    setAlerts((prev) => mergeById(batch, prev, cap));
+    void upsertAlerts(batch);
+  };
+
+  const scheduleFlush = () => {
+    if (flushTimerRef.current !== null) return;
+    flushTimerRef.current = setTimeout(flushPending, FLUSH_MS);
+  };
 
   useEffect(() => {
     if (!wsUrl) {
@@ -136,8 +157,8 @@ export function useLyraSignalFeed(options: UseLyraSignalFeedOptions = {}) {
             return;
           }
           if (msg.type === "alert") {
-            setAlerts((prev) => mergeById([msg.payload], prev, bufferSize));
-            void upsertAlerts([msg.payload]);
+            pendingRef.current.push(msg.payload);
+            scheduleFlush();
             return;
           }
           // pong: ignore
@@ -171,6 +192,11 @@ export function useLyraSignalFeed(options: UseLyraSignalFeedOptions = {}) {
 
     return () => {
       stoppedRef.current = true;
+      if (flushTimerRef.current) {
+        clearTimeout(flushTimerRef.current);
+        flushTimerRef.current = null;
+      }
+      pendingRef.current = [];
       if (reconnectRef.current) clearTimeout(reconnectRef.current);
       if (heartbeatRef.current) {
         clearInterval(heartbeatRef.current);

@@ -13,6 +13,10 @@ import {
   timeAgo,
   timestampLabel,
 } from "@/components/signal/signal-format";
+import {
+  dexScreenerSolanaPairUrl,
+  pumpFunCoinUrl,
+} from "@/core/signal/token-explorer-urls";
 
 type Props = {
   alert: SignalAlert | null;
@@ -44,7 +48,8 @@ export function SignalDetailsPanel({ alert }: Props) {
   const tokenDisplay = formatToken(event.token, symbol);
   const solscanToken = `https://solscan.io/token/${event.token}`;
   const solscanWallet = `https://solscan.io/account/${event.wallet}`;
-  const pumpUrl = `https://pump.fun/${event.token}`;
+  const pumpUrl = pumpFunCoinUrl(event.token);
+  const dexUrl = dexScreenerSolanaPairUrl(event.token);
 
   return (
     <aside className="flex h-full min-h-0 flex-col border-l border-[var(--line)] bg-[var(--panel)]">
@@ -133,6 +138,7 @@ export function SignalDetailsPanel({ alert }: Props) {
         <Section title="Shortcuts">
           <div className="flex flex-wrap gap-2 px-1">
             <ExternalLinkButton href={pumpUrl} label="Open on pump.fun" />
+            <ExternalLinkButton href={dexUrl} label="DexScreener" />
             <ExternalLinkButton href={solscanToken} label="Token · Solscan" />
             <ExternalLinkButton
               href={solscanWallet}

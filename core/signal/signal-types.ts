@@ -5,7 +5,8 @@ export type SignalTradeAction = "buy" | "sell" | "create" | "migrate" | "unknown
 export type SignalRuleId =
   | "large_wallet_usd"
   | "early_buy_index"
-  | "volume_acceleration";
+  | "volume_acceleration"
+  | "bonding_migration";
 
 export type SignalSeverity = "info" | "notable" | "alert" | "critical";
 

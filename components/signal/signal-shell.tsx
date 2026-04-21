@@ -15,13 +15,15 @@ import type { SignalAlert } from "@/core/signal/signal-types";
 import { useLyraSignalFeed } from "@/hooks/use-lyra-signal-feed";
 import { BulkTopBar } from "@/components/workspace/bulk/bulk-top-bar";
 import {
+  applyFeedLane,
   applyFilters,
   useSignalFiltersStore,
 } from "@/stores/signal-filters-store";
 import { SignalFilterPopover } from "@/components/signal/signal-filter-popover";
 import { SignalActiveChips } from "@/components/signal/signal-active-chips";
 import { SignalCard } from "@/components/signal/signal-card";
-import { SignalTickerStrip } from "@/components/signal/signal-ticker-strip";
+import { SignalLivePreview } from "@/components/signal/signal-live-preview";
+import { SignalLaneTabs } from "@/components/signal/signal-lane-tabs";
 import { SignalDetailsPanel } from "@/components/signal/signal-details-panel";
 import {
   formatUsd,
@@ -90,12 +92,15 @@ export function SignalShell() {
     [alerts]
   );
 
-  const filtered = useMemo(() => applyFilters(alerts, filters), [alerts, filters]);
+  const filtered = useMemo(() => applyFilters(rawAlerts, filters), [rawAlerts, filters]);
+  const laneScoped = useMemo(
+    () => applyFeedLane(filtered, filters.feedLane),
+    [filtered, filters.feedLane],
+  );
   const visible = useMemo(() => {
-    const noHeartbeats = filtered.filter((alert) => !isHeartbeat(alert));
-    if (includeDust) return noHeartbeats;
-    return noHeartbeats.filter((alert) => severityBucket(alert) !== "info");
-  }, [filtered, includeDust]);
+    if (includeDust) return laneScoped;
+    return laneScoped.filter((alert) => severityBucket(alert) !== "info");
+  }, [laneScoped, includeDust]);
 
   const selected = useMemo(
     () => visible.find((alert) => alert.id === selectedId) ?? visible[0] ?? null,
@@ -110,11 +115,8 @@ export function SignalShell() {
   }, [alerts]);
 
   const stats = useMemo(() => {
-    const usd = rawAlerts.reduce(
-      (sum, alert) => sum + (alert.event.sizeUsd || 0),
-      0
-    );
-    const lastIso = rawAlerts[0]?.createdAt;
+    const usd = visible.reduce((sum, alert) => sum + (alert.event.sizeUsd || 0), 0);
+    const lastIso = visible[0]?.createdAt ?? rawAlerts[0]?.createdAt;
     const lastLabel = lastIso ? `${timeAgo(lastIso)} ago` : "—";
     return {
       buffered: rawAlerts.length,
@@ -191,7 +193,7 @@ export function SignalShell() {
           </span>
         </div>
 
-        <SignalFilterPopover alerts={alerts} />
+        <SignalFilterPopover alerts={rawAlerts} />
 
         <button
           type="button"
@@ -259,16 +261,21 @@ export function SignalShell() {
         </Link>
       </section>
 
+      <SignalLaneTabs
+        active={filters.feedLane}
+        onChange={filters.setFeedLane}
+      />
+
       <SignalActiveChips />
 
-      <SignalTickerStrip alerts={rawAlerts} />
+      <SignalLivePreview alerts={rawAlerts} />
 
       {/* Stat strip */}
       <div className="grid grid-cols-2 border-b border-[var(--line)] bg-[var(--panel)] sm:grid-cols-4">
         <StatTile label="Buffered" value={stats.buffered.toLocaleString()} />
-        <StatTile label="Shown" value={stats.shown.toLocaleString()} />
-        <StatTile label="Notional" value={formatUsd(stats.usd)} />
-        <StatTile label="Last event" value={stats.lastLabel} />
+        <StatTile label="In view" value={stats.shown.toLocaleString()} />
+        <StatTile label="Notional (view)" value={formatUsd(stats.usd)} />
+        <StatTile label="Last in view" value={stats.lastLabel} />
       </div>
 
       {/* Card feed + details */}

@@ -8,6 +8,7 @@ const RULE_LABEL: Record<string, string> = {
   large_wallet_usd: "Whale",
   early_buy_index: "Early buy",
   volume_acceleration: "Volume",
+  bonding_migration: "Graduated",
 };
 
 const SOURCE_LABEL: Record<string, string> = {

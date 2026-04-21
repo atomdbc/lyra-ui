@@ -43,6 +43,7 @@ export function ruleLabel(rule: SignalAlert["primaryRule"]) {
   if (rule === "large_wallet_usd") return "Whale";
   if (rule === "early_buy_index") return "Early";
   if (rule === "volume_acceleration") return "Volume";
+  if (rule === "bonding_migration") return "Graduate";
   return rule;
 }
 
@@ -50,6 +51,7 @@ export function ruleAccent(rule: SignalAlert["primaryRule"]) {
   if (rule === "large_wallet_usd") return "text-yellow-400";
   if (rule === "early_buy_index") return "text-blue-400";
   if (rule === "volume_acceleration") return "text-fuchsia-400";
+  if (rule === "bonding_migration") return "text-emerald-400";
   return "text-foreground/70";
 }
 

@@ -3,6 +3,7 @@
 import { Check, SlidersHorizontal, X } from "lucide-react";
 import { TerminalPopover, PopoverHeader } from "@/components/ui/terminal-popover";
 import {
+  applyFeedLane,
   applyFilters,
   countActiveFilters,
   useSignalFiltersStore,
@@ -20,6 +21,7 @@ const RULES: Array<{ id: SignalRule; label: string }> = [
   { id: "large_wallet_usd", label: "Whale" },
   { id: "early_buy_index", label: "Early buy" },
   { id: "volume_acceleration", label: "Volume surge" },
+  { id: "bonding_migration", label: "Graduated" },
 ];
 
 const ACTIONS: Array<{ id: SignalAction; label: string }> = [
@@ -41,7 +43,8 @@ const USD_PRESETS = [100, 500, 1_000, 5_000, 25_000];
 export function SignalFilterPopover({ alerts }: Props) {
   const filters = useSignalFiltersStore();
   const active = countActiveFilters(filters);
-  const matching = applyFilters(alerts, filters).length;
+  const matching = applyFeedLane(applyFilters(alerts, filters), filters.feedLane)
+    .length;
 
   return (
     <TerminalPopover
