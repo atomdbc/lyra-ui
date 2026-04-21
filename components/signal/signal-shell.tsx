@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  KeyboardEvent,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowDown,
@@ -27,11 +20,18 @@ import {
 } from "@/stores/signal-filters-store";
 import { SignalFilterPopover } from "@/components/signal/signal-filter-popover";
 import { SignalActiveChips } from "@/components/signal/signal-active-chips";
-import { SignalTapeRow } from "@/components/signal/signal-tape-row";
+import { SignalCard } from "@/components/signal/signal-card";
+import { SignalTickerStrip } from "@/components/signal/signal-ticker-strip";
 import { SignalDetailsPanel } from "@/components/signal/signal-details-panel";
-import { formatUsd, timeAgo } from "@/components/signal/signal-format";
+import {
+  formatUsd,
+  severityBucket,
+  timeAgo,
+} from "@/components/signal/signal-format";
 
 type ConnectionStatus = ReturnType<typeof useLyraSignalFeed>["status"];
+
+const DUST_FILTER_KEY = "lyra-signal-include-dust";
 
 function StatusDot({ status }: { status: ConnectionStatus }) {
   const base = "inline-block h-2 w-2 rounded-full";
@@ -53,37 +53,76 @@ function statusText(status: ConnectionStatus) {
   return "Idle";
 }
 
+function isHeartbeat(alert: SignalAlert) {
+  return alert.event.metadata?.pump?.txType === "heartbeat";
+}
+
 export function SignalShell() {
-  const { alerts, status, wsUrl, lastError, connectionId } = useLyraSignalFeed();
+  const { alerts, status, wsUrl, lastError, connectionId, hydrated } =
+    useLyraSignalFeed();
   const filters = useSignalFiltersStore();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [autoscroll, setAutoscroll] = useState(true);
+  const [includeDust, setIncludeDust] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
-  const [, forceTickerUpdate] = useState(0);
 
-  // Re-render relative times once per second.
   useEffect(() => {
-    const interval = setInterval(() => forceTickerUpdate((value) => value + 1), 1000);
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem(DUST_FILTER_KEY);
+    if (stored === "1") setIncludeDust(true);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(DUST_FILTER_KEY, includeDust ? "1" : "0");
+  }, [includeDust]);
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
   }, []);
 
+  // Tape alerts (no heartbeats) for the ambient ticker + stat strip.
+  const rawAlerts = useMemo(
+    () => alerts.filter((alert) => !isHeartbeat(alert)),
+    [alerts]
+  );
+
+  const filtered = useMemo(() => applyFilters(alerts, filters), [alerts, filters]);
   const visible = useMemo(() => {
-    const filtered = applyFilters(alerts, filters);
-    return filters.paused ? filtered.slice() : filtered;
-  }, [alerts, filters]);
+    const noHeartbeats = filtered.filter((alert) => !isHeartbeat(alert));
+    if (includeDust) return noHeartbeats;
+    return noHeartbeats.filter((alert) => severityBucket(alert) !== "info");
+  }, [filtered, includeDust]);
 
   const selected = useMemo(
     () => visible.find((alert) => alert.id === selectedId) ?? visible[0] ?? null,
     [visible, selectedId]
   );
 
+  const lastHeartbeat = useMemo(() => {
+    for (const alert of alerts) {
+      if (isHeartbeat(alert)) return alert;
+    }
+    return null;
+  }, [alerts]);
+
   const stats = useMemo(() => {
-    const usd = alerts.reduce((sum, alert) => sum + (alert.event.sizeUsd || 0), 0);
-    const lastIso = alerts[0]?.createdAt;
+    const usd = rawAlerts.reduce(
+      (sum, alert) => sum + (alert.event.sizeUsd || 0),
+      0
+    );
+    const lastIso = rawAlerts[0]?.createdAt;
     const lastLabel = lastIso ? `${timeAgo(lastIso)} ago` : "—";
-    return { total: alerts.length, shown: visible.length, usd, lastLabel };
-  }, [alerts, visible]);
+    return {
+      buffered: rawAlerts.length,
+      shown: visible.length,
+      usd,
+      lastLabel,
+    };
+  }, [rawAlerts, visible]);
 
   const handleScroll = useCallback(() => {
     const node = scrollRef.current;
@@ -96,7 +135,6 @@ export function SignalShell() {
     scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
-  // Keyboard: `/` focuses search; arrows move selection when search isn't focused.
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -155,6 +193,20 @@ export function SignalShell() {
 
         <SignalFilterPopover alerts={alerts} />
 
+        <button
+          type="button"
+          onClick={() => setIncludeDust((value) => !value)}
+          className={cn(
+            "inline-flex h-8 items-center gap-1.5 rounded-[6px] border px-2.5 text-[11px] transition",
+            includeDust
+              ? "border-[var(--line-strong)] bg-foreground/[0.08] text-foreground"
+              : "border-[var(--line)] bg-[var(--panel-2)] text-foreground/70 hover:text-foreground"
+          )}
+          title={includeDust ? "Hide info-severity events" : "Show info-severity events"}
+        >
+          {includeDust ? "Including dust" : "Hiding dust"}
+        </button>
+
         <div className="flex h-8 flex-1 items-center gap-2 rounded-[6px] border border-[var(--line)] bg-[var(--panel-2)] px-2">
           <Search className="h-3.5 w-3.5 text-foreground/45" />
           <input
@@ -186,7 +238,7 @@ export function SignalShell() {
               ? "border-yellow-500/40 bg-yellow-500/10 text-yellow-300"
               : "border-[var(--line)] bg-[var(--panel-2)] text-foreground/75 hover:text-foreground"
           )}
-          title={filters.paused ? "Resume tape" : "Pause tape"}
+          title={filters.paused ? "Resume stream" : "Pause stream"}
         >
           {filters.paused ? (
             <>
@@ -207,42 +259,44 @@ export function SignalShell() {
         </Link>
       </section>
 
-      {/* Active filters */}
       <SignalActiveChips />
+
+      <SignalTickerStrip alerts={rawAlerts} />
 
       {/* Stat strip */}
       <div className="grid grid-cols-2 border-b border-[var(--line)] bg-[var(--panel)] sm:grid-cols-4">
-        <StatTile label="Buffer" value={stats.total.toLocaleString()} />
-        <StatTile label="Matches" value={stats.shown.toLocaleString()} />
-        <StatTile label="USD streamed" value={formatUsd(stats.usd)} />
-        <StatTile label="Last alert" value={stats.lastLabel} />
+        <StatTile label="Buffered" value={stats.buffered.toLocaleString()} />
+        <StatTile label="Shown" value={stats.shown.toLocaleString()} />
+        <StatTile label="Notional" value={formatUsd(stats.usd)} />
+        <StatTile label="Last event" value={stats.lastLabel} />
       </div>
 
-      {/* Tape + details */}
+      {/* Card feed + details */}
       <section className="relative flex min-h-0 flex-1">
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="grid shrink-0 grid-cols-[64px_28px_1fr_90px_100px_44px] gap-2 border-b border-[var(--line)] bg-[var(--panel)] px-4 py-1.5 text-[9px] uppercase tracking-[0.16em] text-foreground/40">
-            <span>Time</span>
-            <span />
-            <span>Rule · Token · Note</span>
-            <span className="text-right">Notional</span>
-            <span className="text-right">Wallet</span>
-            <span className="text-right">Source</span>
-          </div>
           <div
             ref={scrollRef}
             onScroll={handleScroll}
-            className="min-h-0 flex-1 overflow-y-auto"
+            className="min-h-0 flex-1 overflow-y-auto px-4 py-3"
           >
-            {status === "disabled" ? (
+            {!hydrated && alerts.length === 0 ? (
+              <CacheSkeleton />
+            ) : status === "disabled" ? (
               <EmptyState
                 title="Signal endpoint not configured"
                 message="Set NEXT_PUBLIC_LYRA_SIGNAL_URL to the Lyra Signal URL."
                 subtle={lastError ?? undefined}
               />
             ) : visible.length === 0 ? (
-              alerts.length > 0 ? (
-                <EmptyFilters onReset={() => filters.reset()} />
+              rawAlerts.length > 0 ? (
+                <EmptyFilters
+                  onReset={() => {
+                    filters.reset();
+                    setIncludeDust(false);
+                  }}
+                  onShowDust={() => setIncludeDust(true)}
+                  showDustHint={!includeDust && filtered.length > 0}
+                />
               ) : status === "open" ? (
                 <QuietFeed />
               ) : (
@@ -257,17 +311,17 @@ export function SignalShell() {
                 />
               )
             ) : (
-              <>
+              <div className="flex flex-col gap-2">
                 {visible.map((alert) => (
-                  <SignalTapeRow
+                  <SignalCard
                     key={alert.id}
                     alert={alert}
                     active={selected?.id === alert.id}
                     onSelect={() => setSelectedId(alert.id)}
+                    now={now}
                   />
                 ))}
-                <div className="h-8" />
-              </>
+              </div>
             )}
           </div>
 
@@ -275,12 +329,27 @@ export function SignalShell() {
             <button
               type="button"
               onClick={jumpLatest}
-              className="absolute bottom-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 rounded-full border border-[var(--line-strong)] bg-[var(--panel)]/90 px-3 py-1 text-[11px] text-foreground/85 shadow-[0_12px_32px_rgba(0,0,0,0.45)] backdrop-blur transition hover:text-foreground"
+              className="absolute bottom-8 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 rounded-full border border-[var(--line-strong)] bg-[var(--panel)]/90 px-3 py-1 text-[11px] text-foreground/85 shadow-[0_12px_32px_rgba(0,0,0,0.45)] backdrop-blur transition hover:text-foreground"
             >
               <ArrowDown className="h-3.5 w-3.5" />
               Jump to latest
             </button>
           ) : null}
+
+          {/* Heartbeat footer */}
+          <div className="flex items-center justify-between border-t border-[var(--line)] bg-[var(--panel)] px-4 py-1.5 text-[10px] text-foreground/50">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--positive)] animate-pulse" />
+              Pipeline {status === "open" ? "live" : statusText(status).toLowerCase()}
+            </span>
+            <span className="font-mono">
+              {rawAlerts.length > 0
+                ? `last alert ${timeAgo(rawAlerts[0].createdAt)} ago`
+                : lastHeartbeat
+                  ? `last heartbeat ${timeAgo(lastHeartbeat.createdAt)} ago`
+                  : "waiting for first event"}
+            </span>
+          </div>
         </div>
 
         <div className="hidden w-[340px] shrink-0 lg:flex">
@@ -309,33 +378,75 @@ function QuietFeed() {
     <div className="flex h-full min-h-[320px] flex-col items-center justify-center text-center">
       <div className="flex items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--panel-2)] px-3 py-1 text-[11px] text-foreground/70">
         <span className="h-1.5 w-1.5 rounded-full bg-[var(--positive)] animate-pulse" />
-        Connected · quiet upstream
+        Connected · waiting for a meaningful event
       </div>
       <p className="mt-3 max-w-md text-[12px] text-foreground/45">
-        No rule has fired yet. The tape updates the moment a wallet crosses the
-        active thresholds upstream.
+        Lyra Signal only surfaces events that matter — large prints, early buys
+        on fresh tokens, volume surges. Dust is suppressed upstream.
       </p>
     </div>
   );
 }
 
-function EmptyFilters({ onReset }: { onReset: () => void }) {
+function EmptyFilters({
+  onReset,
+  onShowDust,
+  showDustHint,
+}: {
+  onReset: () => void;
+  onShowDust: () => void;
+  showDustHint: boolean;
+}) {
   return (
     <div className="flex h-full min-h-[240px] flex-col items-center justify-center text-center">
       <p className="text-[13px] font-medium text-foreground/80">
         No alerts match these filters.
       </p>
       <p className="mt-1 max-w-md text-[11px] text-foreground/45">
-        Loosen a filter to let the stream through.
+        {showDustHint
+          ? "Lower-severity events are hidden. Toggle dust on to see every rule match."
+          : "Loosen a filter to let the stream through."}
       </p>
-      <button
-        type="button"
-        onClick={onReset}
-        className="mt-3 inline-flex items-center gap-1 rounded-[6px] border border-[var(--line)] bg-[var(--panel-2)] px-3 py-1 text-[11px] text-foreground/75 transition hover:text-foreground"
-      >
-        <X className="h-3 w-3" />
-        Clear filters
-      </button>
+      <div className="mt-3 flex items-center gap-2">
+        {showDustHint ? (
+          <button
+            type="button"
+            onClick={onShowDust}
+            className="inline-flex items-center gap-1 rounded-[6px] border border-[var(--line)] bg-[var(--panel-2)] px-3 py-1 text-[11px] text-foreground/75 transition hover:text-foreground"
+          >
+            Include dust
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={onReset}
+          className="inline-flex items-center gap-1 rounded-[6px] border border-[var(--line)] bg-[var(--panel-2)] px-3 py-1 text-[11px] text-foreground/75 transition hover:text-foreground"
+        >
+          <X className="h-3 w-3" />
+          Reset
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CacheSkeleton() {
+  return (
+    <div className="flex flex-col gap-2">
+      {Array.from({ length: 5 }).map((_, index) => (
+        <div
+          key={index}
+          className="flex animate-pulse flex-col gap-2 rounded-[12px] border border-[var(--line)] bg-[var(--panel)] px-4 py-3"
+        >
+          <div className="flex items-center gap-2">
+            <span className="h-3 w-12 rounded bg-foreground/10" />
+            <span className="h-3 w-16 rounded bg-foreground/10" />
+            <span className="ml-auto h-3 w-10 rounded bg-foreground/10" />
+          </div>
+          <span className="h-4 w-full rounded bg-foreground/[0.07]" />
+          <span className="h-3 w-2/3 rounded bg-foreground/[0.05]" />
+        </div>
+      ))}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDownRight, ArrowUpRight, Sparkles, Zap } from "lucide-react";
+import { ActivityIcon, ArrowDownRight, ArrowUpRight, Sparkles, Zap } from "lucide-react";
 import type { SignalAlert } from "@/core/signal/signal-types";
 import { cn } from "@/lib/utils";
 import {
@@ -12,6 +12,10 @@ import {
   severityOf,
   timestampLabel,
 } from "@/components/signal/signal-format";
+
+function isHeartbeat(alert: SignalAlert) {
+  return alert.event.metadata?.pump?.txType === "heartbeat";
+}
 
 type Props = {
   alert: SignalAlert;
@@ -25,16 +29,26 @@ type Props = {
  */
 export function SignalTapeRow({ alert, active, onSelect }: Props) {
   const { event } = alert;
-  const severity = severityOf(alert);
+  const heartbeat = isHeartbeat(alert);
+  const severity = heartbeat ? 0 : severityOf(alert);
   const isBuy = event.action === "buy" || event.action === "create";
   const isSell = event.action === "sell";
-  const Icon =
-    event.action === "create" ? Sparkles : isSell ? ArrowDownRight : isBuy ? ArrowUpRight : Zap;
-  const sideClass = isBuy
-    ? "text-[var(--positive)]"
-    : isSell
-      ? "text-[var(--negative)]"
-      : "text-foreground/70";
+  const Icon = heartbeat
+    ? ActivityIcon
+    : event.action === "create"
+      ? Sparkles
+      : isSell
+        ? ArrowDownRight
+        : isBuy
+          ? ArrowUpRight
+          : Zap;
+  const sideClass = heartbeat
+    ? "text-foreground/45"
+    : isBuy
+      ? "text-[var(--positive)]"
+      : isSell
+        ? "text-[var(--negative)]"
+        : "text-foreground/70";
   const symbol = event.metadata?.pump?.symbol;
 
   return (
@@ -60,10 +74,10 @@ export function SignalTapeRow({ alert, active, onSelect }: Props) {
         <span
           className={cn(
             "shrink-0 rounded-[3px] border border-[var(--line)] bg-[var(--panel-2)] px-1.5 py-px text-[9px] uppercase tracking-wider",
-            ruleAccent(alert.primaryRule)
+            heartbeat ? "text-foreground/45" : ruleAccent(alert.primaryRule)
           )}
         >
-          {ruleLabel(alert.primaryRule)}
+          {heartbeat ? "Sys" : ruleLabel(alert.primaryRule)}
         </span>
         <span
           className={cn(
@@ -80,10 +94,10 @@ export function SignalTapeRow({ alert, active, onSelect }: Props) {
       <span
         className={cn(
           "text-right font-mono tabular-nums",
-          severity >= 2 ? "text-foreground" : "text-foreground/65"
+          heartbeat ? "text-foreground/35" : severity >= 2 ? "text-foreground" : "text-foreground/65"
         )}
       >
-        {formatUsd(event.sizeUsd)}
+        {heartbeat ? "—" : formatUsd(event.sizeUsd)}
       </span>
       <span className="text-right font-mono text-[10px] text-foreground/45">
         {formatWallet(event.wallet)}

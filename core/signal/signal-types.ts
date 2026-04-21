@@ -7,6 +7,8 @@ export type SignalRuleId =
   | "early_buy_index"
   | "volume_acceleration";
 
+export type SignalSeverity = "info" | "notable" | "alert" | "critical";
+
 export interface SignalEvent {
   token: string;
   wallet: string;
@@ -33,6 +35,10 @@ export interface SignalAlert {
   id: string;
   event: SignalEvent;
   primaryRule: SignalRuleId;
+  /** Optional — older backends may omit; derive on-client when missing. */
+  severity?: SignalSeverity;
+  /** Optional numeric score (0-100). */
+  score?: number;
   sentence: string;
   createdAt: string;
 }

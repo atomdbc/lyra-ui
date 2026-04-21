@@ -6,9 +6,28 @@ import type {
   SignalConnectionStatus,
   SignalStreamEvent,
 } from "@/core/signal/signal-types";
+import {
+  loadCachedAlerts,
+  upsertAlerts,
+} from "@/core/signal/signal-cache";
 
 const FEED_PATH = "/feed";
 const DEFAULT_SIGNAL_URL = "wss://lyra-signal-production.up.railway.app";
+
+function mergeById(
+  incoming: SignalAlert[],
+  existing: SignalAlert[],
+  bufferSize: number,
+): SignalAlert[] {
+  if (!incoming.length) return existing;
+  const byId = new Map<string, SignalAlert>();
+  for (const item of existing) byId.set(item.id, item);
+  for (const item of incoming) byId.set(item.id, item);
+  const merged = Array.from(byId.values()).sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+  return merged.length > bufferSize ? merged.slice(0, bufferSize) : merged;
+}
 
 function resolveWsUrl(httpOrWsUrl: string | undefined): string | null {
   if (!httpOrWsUrl) return null;
@@ -49,11 +68,30 @@ export function useLyraSignalFeed(options: UseLyraSignalFeedOptions = {}) {
   );
   const [lastError, setLastError] = useState<string | null>(null);
   const [connectionId, setConnectionId] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
 
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const stoppedRef = useRef(false);
+
+  // Hydrate from IndexedDB cache once — gives the tape instant history.
+  useEffect(() => {
+    let cancelled = false;
+    loadCachedAlerts()
+      .then((cached) => {
+        if (cancelled) return;
+        if (cached.length) {
+          setAlerts((prev) => mergeById(cached, prev, bufferSize));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setHydrated(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [bufferSize]);
 
   useEffect(() => {
     if (!wsUrl) {
@@ -98,10 +136,8 @@ export function useLyraSignalFeed(options: UseLyraSignalFeedOptions = {}) {
             return;
           }
           if (msg.type === "alert") {
-            setAlerts((prev) => {
-              const next = [msg.payload, ...prev];
-              return next.length > bufferSize ? next.slice(0, bufferSize) : next;
-            });
+            setAlerts((prev) => mergeById([msg.payload], prev, bufferSize));
+            void upsertAlerts([msg.payload]);
             return;
           }
           // pong: ignore
@@ -165,5 +201,6 @@ export function useLyraSignalFeed(options: UseLyraSignalFeedOptions = {}) {
     lastError,
     wsUrl,
     sendPing,
+    hydrated,
   };
 }

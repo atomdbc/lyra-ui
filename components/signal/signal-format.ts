@@ -64,3 +64,40 @@ export function severityOf(alert: SignalAlert): 0 | 1 | 2 | 3 {
   if (usd >= 500) return 1;
   return 0;
 }
+
+export type ClientSeverity = "info" | "notable" | "alert" | "critical";
+
+/** Coarser bucket used by the card feed. Honors backend severity when present. */
+export function severityBucket(alert: SignalAlert): ClientSeverity {
+  if (alert.severity) return alert.severity;
+  const usd = alert.event.sizeUsd || 0;
+  if (alert.primaryRule === "large_wallet_usd" && usd >= 50_000) return "critical";
+  if (alert.primaryRule === "large_wallet_usd" && usd >= 10_000) return "alert";
+  if (alert.primaryRule === "large_wallet_usd") return "notable";
+  if (alert.event.action === "create" && usd >= 500) return "alert";
+  if (alert.event.action === "create") return "notable";
+  if (usd >= 10_000) return "alert";
+  if (usd >= 1_000) return "notable";
+  return "info";
+}
+
+export function severityLabel(severity: ClientSeverity) {
+  if (severity === "critical") return "Critical";
+  if (severity === "alert") return "Alert";
+  if (severity === "notable") return "Notable";
+  return "Info";
+}
+
+export function severityAccent(severity: ClientSeverity) {
+  if (severity === "critical") return "text-red-400 bg-red-500/10 border-red-500/30";
+  if (severity === "alert") return "text-yellow-400 bg-yellow-500/10 border-yellow-500/30";
+  if (severity === "notable") return "text-blue-400 bg-blue-500/10 border-blue-500/30";
+  return "text-foreground/55 bg-foreground/[0.04] border-[var(--line)]";
+}
+
+export function severityDot(severity: ClientSeverity) {
+  if (severity === "critical") return "bg-red-400";
+  if (severity === "alert") return "bg-yellow-400";
+  if (severity === "notable") return "bg-blue-400";
+  return "bg-foreground/35";
+}
