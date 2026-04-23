@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/core/market/format";
 import { useWorkspaceStore } from "@/stores/workspace-store";
@@ -15,6 +15,11 @@ import {
   getPositionCurrentPrice,
   getPositionUnrealizedPnl,
 } from "@/core/paper/metrics";
+import type { PaperTrade } from "@/core/paper/types";
+import {
+  BulkPositionDetailDialog,
+  type BulkPositionDetailRow,
+} from "@/components/workspace/bulk/bulk-position-detail-dialog";
 
 type BulkTab =
   | "Positions"
@@ -44,11 +49,23 @@ function EmptyRow({ message }: { message: string }) {
 }
 
 function PositionsPanel({ currentMarketOnly }: { currentMarketOnly: boolean }) {
-  const { positions: livePositions, markets } = usePaperAccountSummary();
+  const { positions: livePositions, markets, trades: liveTrades } = usePaperAccountSummary();
   const demo = useDemoAccount();
   const positions = demo.active ? demo.positions : livePositions;
+  const trades = useMemo(() => (demo.active ? [] : liveTrades), [demo.active, liveTrades]);
   const { activeProductId } = useWorkspaceStore();
   const tradeMutation = usePaperTradeActions();
+  const [detailRow, setDetailRow] = useState<BulkPositionDetailRow | null>(null);
+
+  const tradesByProduct = useMemo(() => {
+    const map = new Map<string, PaperTrade[]>();
+    for (const t of trades) {
+      const list = map.get(t.productId) ?? [];
+      list.push(t);
+      map.set(t.productId, list);
+    }
+    return map;
+  }, [trades]);
 
   const rows = useMemo(
     () =>
@@ -72,8 +89,18 @@ function PositionsPanel({ currentMarketOnly }: { currentMarketOnly: boolean }) {
 
   if (!rows.length) return <EmptyRow message="You have no positions yet." />;
 
+  const dialogTrades = detailRow ? (tradesByProduct.get(detailRow.position.productId) ?? []) : [];
+
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden text-[11px]">
+      <BulkPositionDetailDialog
+        open={detailRow !== null}
+        onOpenChange={(next) => {
+          if (!next) setDetailRow(null);
+        }}
+        row={detailRow}
+        symbolTrades={dialogTrades}
+      />
       <div className="grid shrink-0 grid-cols-[1.1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_0.6fr] border-b border-[var(--line)] px-3 py-1.5 text-[9px] uppercase tracking-wider text-foreground/40">
         <span>Market</span>
         <span className="text-right">Size</span>
@@ -89,7 +116,18 @@ function PositionsPanel({ currentMarketOnly }: { currentMarketOnly: boolean }) {
         {rows.map(({ position, currentPrice, unrealized, notional, roePercent, liq }) => (
           <div
             key={position.id}
-            className="grid grid-cols-[1.1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_0.6fr] border-b border-[var(--line)] px-3 py-2 transition hover:bg-foreground/[0.03]"
+            role="button"
+            tabIndex={0}
+            onClick={() =>
+              setDetailRow({ position, currentPrice, unrealized, notional, roePercent, liq })
+            }
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setDetailRow({ position, currentPrice, unrealized, notional, roePercent, liq });
+              }
+            }}
+            className="grid cursor-pointer grid-cols-[1.1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_0.6fr] border-b border-[var(--line)] px-3 py-2 transition hover:bg-foreground/[0.05]"
           >
             <div className="flex items-center gap-2">
               <span className="font-medium text-foreground/90">{position.symbol}</span>
@@ -140,7 +178,8 @@ function PositionsPanel({ currentMarketOnly }: { currentMarketOnly: boolean }) {
             <div className="flex items-center justify-end">
               <button
                 type="button"
-                onClick={() =>
+                onClick={(e) => {
+                  e.stopPropagation();
                   tradeMutation.mutate({
                     action: "close",
                     productId: position.productId,
@@ -148,8 +187,8 @@ function PositionsPanel({ currentMarketOnly }: { currentMarketOnly: boolean }) {
                     quantity: position.quantity,
                     price: currentPrice,
                     note: "Closed from terminal",
-                  })
-                }
+                  });
+                }}
                 className="rounded-[4px] border border-[var(--line-strong)] bg-[var(--panel-2)] px-2 py-0.5 text-[10px] font-medium text-foreground/85 transition hover:bg-foreground/[0.05]"
               >
                 Close
@@ -271,12 +310,17 @@ function bulkTabStubMessage(tab: BulkTab): string {
 export function BulkBottomTabs() {
   const [active, setActive] = useState<BulkTab>("Positions");
   const [currentMarket, setCurrentMarket] = useState(false);
+  const { trades: liveTradesForTab } = usePaperAccountSummary();
+  const demo = useDemoAccount();
+  const tradeCountForLabel = demo.active ? 0 : liveTradesForTab.length;
   const bottomPanelTab = useWorkspaceStore((state) => state.bottomPanelTab);
   const setBottomPanelTab = useWorkspaceStore((state) => state.setBottomPanelTab);
 
   useEffect(() => {
-    if (bottomPanelTab === "positions") setActive("Positions");
-    if (bottomPanelTab === "trades") setActive("Trade History");
+    startTransition(() => {
+      if (bottomPanelTab === "positions") setActive("Positions");
+      if (bottomPanelTab === "trades") setActive("Trade History");
+    });
   }, [bottomPanelTab]);
 
   const selectTab = (tab: BulkTab) => {
@@ -301,7 +345,7 @@ export function BulkBottomTabs() {
                   : "text-foreground/50 hover:text-foreground/85"
               )}
             >
-              {tab}
+              {tab === "Positions" ? `Positions (${tradeCountForLabel})` : tab}
               {tab === active ? (
                 <span className="absolute inset-x-0 -bottom-[1px] h-[2px] bg-foreground" />
               ) : null}
