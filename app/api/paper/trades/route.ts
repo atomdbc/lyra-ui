@@ -9,10 +9,9 @@ function normalizeTradeErrorMessage(message: string) {
   const lower = message.toLowerCase();
   if (
     lower.includes("one of 1x, 2x, or 3x") ||
-    (lower.includes("leverage") && lower.includes("3x")) ||
-    lower.includes("leverage") && lower.includes("allowed")
+    lower.includes("must be one of 1x, 2x, or 3x")
   ) {
-    return "Leverage is higher than this database allows (often 3× until migrations are applied). Lower leverage on the ticket, or raise the limit in Postgres / PAPER_MAX_LEVERAGE to match.";
+    return "Your Supabase database is still on the legacy 3× paper cap (migration filename order re-applied an older function). Run migration 20260424_paper_leverage_fix_migration_order.sql, or set leverage to 3× or below until then.";
   }
 
   return message;
