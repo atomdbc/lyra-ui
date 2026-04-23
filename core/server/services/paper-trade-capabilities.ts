@@ -7,9 +7,9 @@ type PaperTradeCapabilities = {
 };
 
 /**
- * Paper max leverage for the UI + validation.
- * Previously we probed Supabase with a fake user; error strings like "1x, 2x, or 3x" cached 3x for everyone.
- * Use env PAPER_MAX_LEVERAGE (1–40) or default to 40. The RPC may still enforce a lower DB limit per deploy.
+ * Paper max leverage for the UI + API validation (env PAPER_MAX_LEVERAGE, default 40).
+ * Postgres must match: see migration 20260424_paper_leverage_fix_migration_order.sql if RPC still errors
+ * with "1x, 2x, or 3x" (older 20260402_* migration order overwrote the 40× RPC).
  */
 export async function getPaperTradeCapabilities(): Promise<PaperTradeCapabilities> {
   const raw = Number(process.env.PAPER_MAX_LEVERAGE ?? PAPER_LEVERAGE_MAX);
