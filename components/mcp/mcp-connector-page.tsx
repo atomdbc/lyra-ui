@@ -456,7 +456,7 @@ export function McpConnectorPage() {
                 {[
                   "Call get_trading_context and summarize my Lyra state.",
                   "What are my trading rules in Lyra right now?",
-                  "Record a small paper trade in Lyra: SOL to USDC for 0.01 SOL.",
+                  "Open a small Lyra paper short on SOL: ask me side, leverage, optional SL/TP, then execute_trade with token_in SOL, token_out USDC, amount_in 0.01, side short.",
                 ].map((line) => (
                   <p
                     key={line}
