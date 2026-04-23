@@ -3,10 +3,10 @@
 import { Suspense, useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Check, ChevronRight, Copy, ExternalLink, Info } from "lucide-react";
+import { Check, Copy, ExternalLink } from "lucide-react";
 import { BulkTopBar } from "@/components/workspace/bulk/bulk-top-bar";
 import { Button } from "@/components/ui/button";
-import { buildMcpConnectorUrls, normalizeMcpBaseUrl } from "@/lib/mcp-connector-url";
+import { buildMcpConnectorUrls, resolveLyraMcpPublicOrigin } from "@/lib/mcp-connector-url";
 
 const ANTHROPIC_REMOTE_MCP_GUIDE =
   "https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp";
@@ -15,11 +15,10 @@ function InstallBody() {
   const searchParams = useSearchParams();
   const token = (searchParams.get("token") ?? "").trim();
 
-  const baseFromEnv = process.env.NEXT_PUBLIC_LYRA_MCP_BASE_URL ?? "";
-  const base = baseFromEnv ? normalizeMcpBaseUrl(baseFromEnv) : "";
+  const base = resolveLyraMcpPublicOrigin(process.env.NEXT_PUBLIC_LYRA_MCP_BASE_URL);
 
   const urls = useMemo(
-    () => (base && token ? buildMcpConnectorUrls(token, base) : null),
+    () => (token ? buildMcpConnectorUrls(token, base) : null),
     [base, token],
   );
 
@@ -60,34 +59,6 @@ function InstallBody() {
             <Button asChild className="mt-5 rounded-full px-6" size="default">
               <Link href="/mcp">Back to connect</Link>
             </Button>
-          </div>
-        ) : !base ? (
-          <div className="mt-10 flex gap-4 rounded-2xl border border-foreground/[0.08] bg-[var(--panel)]/90 px-5 py-5 shadow-sm backdrop-blur-sm sm:px-6">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-foreground/[0.06] text-foreground/70">
-              <Info className="h-5 w-5" aria-hidden />
-            </div>
-            <div className="min-w-0 space-y-2">
-              <p className="text-[15px] font-medium leading-snug text-foreground">Links aren’t ready here yet</p>
-              <p className="text-[13px] leading-relaxed text-foreground/60">
-                Your token is valid, but this site build isn’t linked to the live MCP server yet — so we can’t
-                assemble the URL for Claude. On production this page shows copy buttons automatically.
-              </p>
-              <details className="group pt-1">
-                <summary className="cursor-pointer list-none text-[12px] font-medium text-foreground/45 outline-none [&::-webkit-details-marker]:hidden">
-                  <span className="inline-flex items-center gap-1">
-                    For whoever ships this
-                    <ChevronRight className="h-3.5 w-3.5 shrink-0 transition group-open:rotate-90" aria-hidden />
-                  </span>
-                </summary>
-                <p className="mt-3 text-[12px] leading-relaxed text-foreground/50">
-                  Point this frontend at your public MCP origin (no trailing slash), redeploy, reload — then the
-                  install links populate.
-                </p>
-              </details>
-              <Button asChild variant="secondary" className="mt-3 rounded-full border border-foreground/10 bg-transparent" size="sm">
-                <Link href="/mcp">Open full connect page</Link>
-              </Button>
-            </div>
           </div>
         ) : (
           <div className="mt-10 space-y-8">

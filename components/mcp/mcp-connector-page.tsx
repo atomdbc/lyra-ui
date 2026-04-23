@@ -19,7 +19,11 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWorkspaceAuth } from "@/hooks/use-workspace-auth";
-import { buildMcpConnectorUrls, normalizeMcpBaseUrl } from "@/lib/mcp-connector-url";
+import {
+  buildMcpConnectorUrls,
+  LYRA_MCP_DEFAULT_PUBLIC_ORIGIN,
+  resolveLyraMcpPublicOrigin,
+} from "@/lib/mcp-connector-url";
 import { cn } from "@/lib/utils";
 
 const ANTHROPIC_REMOTE_MCP_GUIDE =
@@ -48,8 +52,7 @@ function StepBadge({ n }: { n: number }) {
 
 export function McpConnectorPage() {
   const { ready, authenticated, login, logout, getAccessToken, walletAddress } = useWorkspaceAuth();
-  const baseFromEnv = process.env.NEXT_PUBLIC_LYRA_MCP_BASE_URL ?? "";
-  const base = baseFromEnv ? normalizeMcpBaseUrl(baseFromEnv) : "";
+  const base = resolveLyraMcpPublicOrigin(process.env.NEXT_PUBLIC_LYRA_MCP_BASE_URL);
 
   const [sessionId, setSessionId] = useState(() => newSessionId());
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -57,16 +60,18 @@ export function McpConnectorPage() {
   const [revokeLoading, setRevokeLoading] = useState(false);
   const [mintMessage, setMintMessage] = useState<string | null>(null);
 
-  const urls = useMemo(
-    () => (base ? buildMcpConnectorUrls(sessionId, base) : null),
-    [base, sessionId],
-  );
+  const urls = useMemo(() => buildMcpConnectorUrls(sessionId, base), [base, sessionId]);
 
-  const primaryUrl = urls?.withQuery ?? "";
+  const primaryUrl = urls.withQuery;
   const isMintedTradingToken = sessionId.startsWith("lyt_");
   const [siteOrigin, setSiteOrigin] = useState("");
+  const [previewHost, setPreviewHost] = useState(false);
   useEffect(() => {
     setSiteOrigin(window.location.origin);
+    const h = window.location.hostname;
+    setPreviewHost(
+      h.endsWith(".vercel.app") || h === "localhost" || h === "127.0.0.1" || h === "[::1]"
+    );
   }, []);
   const shareableInstallHref = siteOrigin
     ? `${siteOrigin}/mcp/install?token=${encodeURIComponent(sessionId)}`
@@ -108,12 +113,7 @@ export function McpConnectorPage() {
       }
       setSessionId(body.token);
       setCopiedField(null);
-      const hasBase = Boolean(process.env.NEXT_PUBLIC_LYRA_MCP_BASE_URL?.trim());
-      setMintMessage(
-        hasBase
-          ? "You’re set — copy the connector link below and add it in Claude."
-          : "Your secure token is saved. When this site is linked to the Lyra MCP server, your install links will show up automatically below.",
-      );
+      setMintMessage("You’re set — copy the connector link below and add it in Claude.");
     } catch (e) {
       setMintMessage(e instanceof Error ? e.message : "Something went wrong. Try again in a moment.");
     } finally {
@@ -160,7 +160,7 @@ export function McpConnectorPage() {
       />
       <BulkTopBar />
       <div className="relative mx-auto w-full max-w-3xl flex-1 px-5 pb-20 pt-10 sm:px-8 sm:pt-14 md:pb-28">
-        {!base ? (
+        {previewHost ? (
           <div
             className="mb-10 flex gap-4 rounded-2xl border border-foreground/[0.08] bg-[var(--panel)]/90 px-5 py-4 shadow-sm backdrop-blur-sm sm:items-start sm:px-6 sm:py-5"
             role="status"
@@ -170,25 +170,30 @@ export function McpConnectorPage() {
             </div>
             <div className="min-w-0 flex-1 space-y-2">
               <p className="text-[15px] font-medium leading-snug tracking-tight text-foreground">
-                Install links aren’t available on this preview yet
+                Preview — not fully wired to production Lyra
               </p>
               <p className="text-[13px] leading-relaxed text-foreground/60">
-                Nothing is wrong with your account — this environment just isn’t wired to the live Lyra MCP
-                server yet, so we can’t build the URL Claude needs. On production, this message goes away and
-                you’ll see copyable links right here.
+                You’re on a preview-style host. The Claude connector URLs below still use Lyra’s default MCP
+                endpoint — you don’t need to set any environment variable for them to appear.
               </p>
               <details className="group pt-1">
                 <summary className="cursor-pointer list-none text-[12px] font-medium text-foreground/45 outline-none transition hover:text-foreground/70 [&::-webkit-details-marker]:hidden">
                   <span className="inline-flex items-center gap-1">
-                    Hosting checklist
+                    Hosting note (operators)
                     <ChevronRight className="h-3.5 w-3.5 shrink-0 transition group-open:rotate-90" aria-hidden />
                   </span>
                 </summary>
-                <p className="mt-3 text-[12px] leading-relaxed text-foreground/50">
-                  Ask whoever deploys Lyra to point this app at your MCP server URL (same host you use on
-                  Railway), redeploy once, then refresh. If you’re that person, the setting is the public MCP
-                  origin — no trailing slash.
-                </p>
+                <div className="mt-3 space-y-2 text-[12px] leading-relaxed text-foreground/50">
+                  <p>
+                    Default MCP origin (hardcoded for this app):{" "}
+                    <span className="font-mono text-[11px] text-foreground/65">{LYRA_MCP_DEFAULT_PUBLIC_ORIGIN}</span>
+                  </p>
+                  <p>
+                    To use a different MCP host (e.g. a custom domain in front of Railway), set{" "}
+                    <span className="font-mono text-[11px]">NEXT_PUBLIC_LYRA_MCP_BASE_URL</span> at build time —
+                    no trailing slash. Ensure that host is listed in the MCP server’s allowed hosts.
+                  </p>
+                </div>
               </details>
             </div>
           </div>
@@ -361,25 +366,23 @@ export function McpConnectorPage() {
                     </Button>
                   </div>
                 </div>
-                {urls ? (
-                  <div>
-                    <p className="text-[11px] font-medium text-foreground/40">Alternative path style</p>
-                    <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-stretch">
-                      <div className="min-h-[3.25rem] flex-1 rounded-2xl border border-foreground/[0.06] bg-foreground/[0.02] px-4 py-3 font-mono text-[11px] leading-snug text-foreground/70 break-all sm:py-3.5">
-                        {urls.withPath}
-                      </div>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="lg"
-                        className="h-auto shrink-0 rounded-2xl border border-foreground/10 bg-transparent px-6 sm:self-stretch"
-                        onClick={() => copy("path", urls.withPath)}
-                      >
-                        {copiedField === "path" ? "Copied" : "Copy"}
-                      </Button>
+                <div>
+                  <p className="text-[11px] font-medium text-foreground/40">Alternative path style</p>
+                  <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-stretch">
+                    <div className="min-h-[3.25rem] flex-1 rounded-2xl border border-foreground/[0.06] bg-foreground/[0.02] px-4 py-3 font-mono text-[11px] leading-snug text-foreground/70 break-all sm:py-3.5">
+                      {urls.withPath}
                     </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="lg"
+                      className="h-auto shrink-0 rounded-2xl border border-foreground/10 bg-transparent px-6 sm:self-stretch"
+                      onClick={() => copy("path", urls.withPath)}
+                    >
+                      {copiedField === "path" ? "Copied" : "Copy"}
+                    </Button>
                   </div>
-                ) : null}
+                </div>
               </div>
             </div>
           </div>
