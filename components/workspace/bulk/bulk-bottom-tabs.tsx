@@ -29,10 +29,10 @@ import {
   type BulkPositionDetailRow,
 } from "@/components/workspace/bulk/bulk-position-detail-dialog";
 import { BulkTabStubDialog, type BulkStubTab } from "@/components/workspace/bulk/bulk-tab-stub-dialog";
+import { usePaperPositions } from "@/hooks/use-paper-positions";
 
 type BulkTab =
   | "Positions"
-  | "Radar"
   | "Open Orders"
   | "Balances"
   | "Order History"
@@ -42,7 +42,6 @@ type BulkTab =
 
 const TABS: BulkTab[] = [
   "Positions",
-  "Radar",
   "Open Orders",
   "Balances",
   "Order History",
@@ -61,8 +60,6 @@ const STUB_TABS = new Set<BulkStubTab>([
 function isStubTab(tab: BulkTab): tab is BulkStubTab {
   return STUB_TABS.has(tab as BulkStubTab);
 }
-
-import { BulkRadarPanel } from "@/components/workspace/bulk/bulk-radar-panel";
 
 function TradeFillDetailDialog({
   trade,
@@ -497,9 +494,9 @@ export function BulkBottomTabs() {
   const [active, setActive] = useState<BulkTab>("Positions");
   const [currentMarket, setCurrentMarket] = useState(false);
   const [stubModalTab, setStubModalTab] = useState<BulkStubTab | null>(null);
-  const { trades: liveTradesForTab } = usePaperAccountSummary();
+  const openPositions = usePaperPositions();
   const demo = useDemoAccount();
-  const tradeCountForLabel = demo.active ? 0 : liveTradesForTab.length;
+  const positionsCountForLabel = demo.active ? demo.positions.length : openPositions.length;
   const bottomPanelTab = useWorkspaceStore((state) => state.bottomPanelTab);
   const setBottomPanelTab = useWorkspaceStore((state) => state.setBottomPanelTab);
 
@@ -520,8 +517,6 @@ export function BulkBottomTabs() {
     setActive(tab);
     if (tab === "Positions") {
       setBottomPanelTab("positions");
-      setStubModalTab(null);
-    } else if (tab === "Radar") {
       setStubModalTab(null);
     } else if (tab === "Trade History") {
       setBottomPanelTab("trades");
@@ -556,7 +551,7 @@ export function BulkBottomTabs() {
                   : "text-foreground/50 hover:text-foreground/85"
               )}
             >
-              {tab === "Positions" ? `Positions (${tradeCountForLabel})` : tab}
+              {tab === "Positions" ? `Positions (${positionsCountForLabel})` : tab}
               {tab === active ? (
                 <span className="absolute inset-x-0 -bottom-[1px] h-[2px] bg-foreground" />
               ) : null}
@@ -577,8 +572,6 @@ export function BulkBottomTabs() {
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {active === "Positions" ? (
           <PositionsPanel currentMarketOnly={currentMarket} />
-        ) : active === "Radar" ? (
-          <BulkRadarPanel />
         ) : active === "Trade History" ? (
           <TradeHistoryPanel currentMarketOnly={currentMarket} />
         ) : active === "Balances" ? (

@@ -25,6 +25,7 @@ import { SignalCard } from "@/components/signal/signal-card";
 import { SignalLivePreview } from "@/components/signal/signal-live-preview";
 import { SignalLaneTabs } from "@/components/signal/signal-lane-tabs";
 import { SignalDetailsPanel } from "@/components/signal/signal-details-panel";
+import { SignalBirdeyeRadar } from "@/components/signal/signal-birdeye-radar";
 import {
   formatUsd,
   severityBucket,
@@ -269,6 +270,8 @@ export function SignalShell() {
       <SignalActiveChips />
 
       <SignalLivePreview alerts={rawAlerts} />
+
+      <SignalBirdeyeRadar />
 
       {/* Stat strip */}
       <div className="grid grid-cols-2 border-b border-[var(--line)] bg-[var(--panel)] sm:grid-cols-4">
