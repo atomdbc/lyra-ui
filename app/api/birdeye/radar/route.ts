@@ -206,13 +206,14 @@ export async function GET(request: Request) {
     );
   } catch (error) {
     console.error("Birdeye radar route failed:", error);
-    return NextResponse.json(
-      {
-        ok: false,
-        message: error instanceof Error ? error.message : "Unable to load Birdeye radar.",
-      },
-      { status: 502 }
-    );
+    const rawMessage = error instanceof Error ? error.message.toLowerCase() : "";
+    const message =
+      rawMessage.includes("birdeye_api_key") || rawMessage.includes("unauthorized")
+        ? "Radar is temporarily unavailable. Reconnecting the data feed."
+        : rawMessage.includes("too many requests") || rawMessage.includes("rate limit")
+          ? "Birdeye is busy. Please try again in a moment."
+          : "Radar is unavailable right now. Try again in a moment.";
+    return NextResponse.json({ ok: false, message }, { status: 502 });
   }
 }
 

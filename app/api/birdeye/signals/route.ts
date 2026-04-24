@@ -167,8 +167,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, ...result, mode, limit });
   } catch (error) {
     console.error("Birdeye signals route failed:", error);
-    const message = error instanceof Error ? error.message : "Unable to publish signals.";
-    const status = message.toLowerCase().includes("bearer") ? 401 : 400;
+    const raw = error instanceof Error ? error.message.toLowerCase() : "";
+    let status = 400;
+    let message = "Couldn’t publish radar picks. Try again in a moment.";
+    if (raw.includes("bearer") || raw.includes("missing bearer")) {
+      status = 401;
+      message = "Please sign in to publish picks.";
+    } else if (raw.includes("birdeye_api_key") || raw.includes("unauthorized")) {
+      status = 502;
+      message = "Radar feed is reconnecting. Please try again shortly.";
+    } else if (raw.includes("too many requests") || raw.includes("rate limit")) {
+      status = 429;
+      message = "Birdeye is busy. Please try again in a moment.";
+    } else if (raw.includes("workspace user")) {
+      message = "Your workspace isn’t fully set up yet. Open the terminal once, then try again.";
+    } else if (raw.includes("lyra_trading_signals")) {
+      message = "Signals storage isn’t ready yet. Apply the latest Supabase migration.";
+    }
     return NextResponse.json({ ok: false, message }, { status });
   }
 }

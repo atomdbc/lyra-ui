@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { formatPrice } from "@/core/market/format";
 import { useBirdeyeRadar, type BirdeyeRadarMode, type BirdeyeRadarToken } from "@/hooks/use-birdeye-radar";
 import { Button } from "@/components/ui/button";
+import { useWorkspaceAuth } from "@/hooks/use-workspace-auth";
 
 function badgeTone(score: number) {
   if (score >= 80) return "bg-[var(--positive)]/15 text-[var(--positive)] border-[var(--positive)]/25";
@@ -26,11 +27,49 @@ function tokenKey(t: BirdeyeRadarToken) {
   return `${t.address}:${t.symbol}`;
 }
 
+/** Hide raw API error strings from the end user. */
+function humanizeRadarError(message: string | undefined): string {
+  if (!message) return "Radar is unavailable right now.";
+  const m = message.toLowerCase();
+  if (m.includes("birdeye_api_key") || m.includes("missing birdeye") || m.includes("unauthorized")) {
+    return "Radar is temporarily unavailable. Reconnecting the data feed.";
+  }
+  if (m.includes("too many requests") || m.includes("rate limit")) {
+    return "Birdeye is busy. Please try again in a moment.";
+  }
+  if (m.includes("bearer") || m.includes("missing bearer")) {
+    return "Please sign in to use the radar.";
+  }
+  if (m.includes("network") || m.includes("fetch")) {
+    return "Lost connection. We’ll retry automatically.";
+  }
+  return "Radar is unavailable right now. Try again in a moment.";
+}
+
+function humanizePublishError(message: string | undefined, authed: boolean): string {
+  if (!authed) return "Sign in to publish picks to your alerts feed.";
+  if (!message) return "Couldn’t publish radar picks. Try again in a moment.";
+  const m = message.toLowerCase();
+  if (m.includes("bearer")) return "Please sign in to publish picks.";
+  if (m.includes("birdeye_api_key") || m.includes("missing birdeye")) {
+    return "Radar feed is reconnecting. Please try again shortly.";
+  }
+  if (m.includes("lyra_trading_signals")) {
+    return "The signals table isn’t ready yet. Apply the latest Supabase migration.";
+  }
+  if (m.includes("workspace user")) {
+    return "Your workspace isn’t fully set up yet. Open the terminal once, then try again.";
+  }
+  return "Couldn’t publish radar picks. Try again in a moment.";
+}
+
 export function BulkRadarPanel() {
   const [mode, setMode] = useState<BirdeyeRadarMode>("trending");
+  const auth = useWorkspaceAuth();
   const radar = useBirdeyeRadar({ mode, limit: 12 });
   const [publishing, setPublishing] = useState(false);
   const [publishMessage, setPublishMessage] = useState<string | null>(null);
+  const [publishOk, setPublishOk] = useState<boolean | null>(null);
 
   const rows = useMemo(() => radar.data?.tokens ?? [], [radar.data?.tokens]);
 
@@ -43,9 +82,7 @@ export function BulkRadarPanel() {
           </div>
           <div>
             <p className="text-[11px] font-semibold text-foreground/90">Radar</p>
-            <p className="text-[10px] text-foreground/45">
-              Powered by Birdeye: trending + new listings + token security
-            </p>
+            <p className="text-[10px] text-foreground/45">Trending + new listings, with safety signals.</p>
           </div>
         </div>
 
@@ -68,42 +105,67 @@ export function BulkRadarPanel() {
 
       <div className="flex items-center justify-between gap-2 border-b border-[var(--line)] px-3 py-2">
         <p className="text-[10px] text-foreground/50">
-          Publish top picks into <span className="font-mono text-foreground/60">lyra_trading_signals</span> so Claude{" "}
-          <span className="font-medium text-foreground/65">get_alerts</span> becomes a real feed.
+          {auth.authenticated
+            ? "Send the top picks to your Lyra alerts so Claude can react to them."
+            : "Sign in to send these picks to your Lyra alerts."}
         </p>
         <Button
           type="button"
           variant="secondary"
           size="sm"
           className="rounded-full"
-          disabled={publishing || radar.isLoading}
+          disabled={publishing || radar.isLoading || !auth.ready || !auth.authenticated}
           onClick={async () => {
             setPublishMessage(null);
+            setPublishOk(null);
             setPublishing(true);
             try {
+              if (!auth.authenticated) {
+                throw new Error("missing bearer token");
+              }
+              const accessToken = await auth.getAccessToken();
+              if (!accessToken) {
+                throw new Error("missing bearer token");
+              }
               const res = await fetch("/api/birdeye/signals", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${accessToken}`,
+                },
                 body: JSON.stringify({ mode, limit: 10 }),
               });
               const json = (await res.json()) as { ok?: boolean; inserted?: number; message?: string };
               if (!res.ok || !json.ok) {
                 throw new Error(json.message ?? "Unable to publish signals.");
               }
-              setPublishMessage(`Published ${json.inserted ?? 0} signal(s).`);
+              setPublishOk(true);
+              setPublishMessage(`Sent ${json.inserted ?? 0} picks to your alerts.`);
             } catch (e) {
-              setPublishMessage(e instanceof Error ? e.message : "Publish failed.");
+              setPublishOk(false);
+              setPublishMessage(
+                humanizePublishError(e instanceof Error ? e.message : undefined, auth.authenticated)
+              );
             } finally {
               setPublishing(false);
             }
           }}
         >
-          {publishing ? "Publishing…" : "Publish signals"}
+          {publishing ? "Sending…" : "Send to alerts"}
         </Button>
       </div>
 
       {publishMessage ? (
-        <div className="border-b border-[var(--line)] px-3 py-2 text-[10px] text-foreground/55">
+        <div
+          className={cn(
+            "border-b border-[var(--line)] px-3 py-2 text-[10px]",
+            publishOk === false
+              ? "text-[var(--negative)]"
+              : publishOk === true
+                ? "text-[var(--positive)]"
+                : "text-foreground/55"
+          )}
+        >
           {publishMessage}
         </div>
       ) : null}
@@ -111,8 +173,17 @@ export function BulkRadarPanel() {
       {radar.isLoading ? (
         <div className="flex flex-1 items-center justify-center text-[11px] text-foreground/45">Loading radar…</div>
       ) : radar.error instanceof Error ? (
-        <div className="flex flex-1 items-center justify-center px-4 text-center text-[11px] text-[var(--negative)]">
-          {radar.error.message}
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4 text-center text-[11px] text-foreground/55">
+          <p className="text-foreground/70">{humanizeRadarError(radar.error.message)}</p>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="rounded-full"
+            onClick={() => void radar.refetch()}
+          >
+            Try again
+          </Button>
         </div>
       ) : !rows.length ? (
         <div className="flex flex-1 items-center justify-center text-[11px] text-foreground/45">No tokens yet.</div>
@@ -209,4 +280,3 @@ export function BulkRadarPanel() {
     </div>
   );
 }
-
