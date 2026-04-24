@@ -32,6 +32,7 @@ import { BulkTabStubDialog, type BulkStubTab } from "@/components/workspace/bulk
 
 type BulkTab =
   | "Positions"
+  | "Radar"
   | "Open Orders"
   | "Balances"
   | "Order History"
@@ -41,6 +42,7 @@ type BulkTab =
 
 const TABS: BulkTab[] = [
   "Positions",
+  "Radar",
   "Open Orders",
   "Balances",
   "Order History",
@@ -59,6 +61,8 @@ const STUB_TABS = new Set<BulkStubTab>([
 function isStubTab(tab: BulkTab): tab is BulkStubTab {
   return STUB_TABS.has(tab as BulkStubTab);
 }
+
+import { BulkRadarPanel } from "@/components/workspace/bulk/bulk-radar-panel";
 
 function TradeFillDetailDialog({
   trade,
@@ -517,6 +521,8 @@ export function BulkBottomTabs() {
     if (tab === "Positions") {
       setBottomPanelTab("positions");
       setStubModalTab(null);
+    } else if (tab === "Radar") {
+      setStubModalTab(null);
     } else if (tab === "Trade History") {
       setBottomPanelTab("trades");
       setStubModalTab(null);
@@ -571,6 +577,8 @@ export function BulkBottomTabs() {
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {active === "Positions" ? (
           <PositionsPanel currentMarketOnly={currentMarket} />
+        ) : active === "Radar" ? (
+          <BulkRadarPanel />
         ) : active === "Trade History" ? (
           <TradeHistoryPanel currentMarketOnly={currentMarket} />
         ) : active === "Balances" ? (
