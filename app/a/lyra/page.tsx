@@ -128,6 +128,15 @@ export default function LyraWatchPage() {
           data?: Record<string, unknown>;
         };
 
+        // "Agent offline" errors are reflected by the header status dot —
+        // don't spam the feed with them.
+        if (msg.type === "error" && msg.content?.toLowerCase().includes("offline")) {
+          setConnected(false);
+          return;
+        }
+
+        setConnected(true);
+
         // Side effects
         if (msg.type === "tool_result" && Array.isArray(msg.data?.positions)) {
           setPositions(msg.data.positions as Position[]);
