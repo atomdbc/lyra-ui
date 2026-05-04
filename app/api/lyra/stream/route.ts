@@ -27,9 +27,10 @@ export async function GET() {
 }
 
 function offlineResponse() {
-  const body = 'data: {"type":"error","content":"Agent offline — start lyra-agent on port 4060"}\n\n';
+  // retry: 10000 tells EventSource to wait 10 s before reconnecting
+  const body = 'retry: 10000\ndata: {"type":"error","content":"Agent offline"}\n\n';
   return new Response(body, {
     status: 200,
-    headers: { "Content-Type": "text/event-stream" },
+    headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
   });
 }

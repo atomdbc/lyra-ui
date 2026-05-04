@@ -261,7 +261,7 @@ export default function LyraWatchPage() {
           >
             <SectionHeader
               label="POSITIONS"
-              right={`${positions.length} / ${agentStatus?.constraints.maxPositions ?? 3}`}
+              right={`${positions.length} / ${agentStatus?.constraints?.maxPositions ?? 3}`}
             />
             <div className="p-3 text-[10px]">
               {positions.length === 0 ? (
@@ -307,8 +307,8 @@ export default function LyraWatchPage() {
             <div className="space-y-1 p-3 text-[10px]">
               {agentStatus ? (
                 <>
-                  <Row label="max position" value={`$${agentStatus.constraints.maxPositionUsd}`} />
-                  <Row label="max leverage" value={`${agentStatus.constraints.maxLeverage}x`} />
+                  <Row label="max position" value={`$${agentStatus.constraints?.maxPositionUsd ?? "—"}`} />
+                  <Row label="max leverage" value={`${agentStatus.constraints?.maxLeverage ?? "—"}x`} />
                   <Row label="scan" value={`${agentStatus.scanIntervalMs / 1000}s`} />
                   <Row label="wallet" value={shortAddress(agentStatus.hlAddress)} dim />
                 </>
